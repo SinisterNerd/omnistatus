@@ -77,6 +77,8 @@ make lint
 
 ### Building for Different Platforms
 
+`make release` does this for every officially supported platform at once (see "Release Checklist" below) - use that unless you specifically need just one target. Manually:
+
 ```bash
 # Build for macOS (ARM64 - Apple Silicon)
 GOOS=darwin GOARCH=arm64 go build -o ost-darwin-arm64
@@ -84,11 +86,13 @@ GOOS=darwin GOARCH=arm64 go build -o ost-darwin-arm64
 # Build for macOS (Intel)
 GOOS=darwin GOARCH=amd64 go build -o ost-darwin-amd64
 
-# Build for Linux
+# Build for Linux (amd64 or arm64)
 GOOS=linux GOARCH=amd64 go build -o ost-linux-amd64
+GOOS=linux GOARCH=arm64 go build -o ost-linux-arm64
 
-# Build for Windows
+# Build for Windows (amd64, or arm64 - e.g. Surface devices with Snapdragon chips)
 GOOS=windows GOARCH=amd64 go build -o ost-windows-amd64.exe
+GOOS=windows GOARCH=arm64 go build -o ost-windows-arm64.exe
 ```
 
 ## Project Structure Review
@@ -420,7 +424,7 @@ go get github.com/spf13/cobra@latest
 
 ## Release Checklist
 
-Releasing is automated: pushing a `v*` tag triggers `.github/workflows/release.yml`, which cross-compiles the CLI for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) and attaches the binaries to a GitHub Release for that tag (auto-generated release notes from commits). It does **not** build the macOS menu bar app - that's CGO/Cocoa-dependent and stays a local-only build via `make build-menubar`.
+Releasing is automated: pushing a `v*` tag triggers `.github/workflows/release.yml`, which cross-compiles the CLI for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64/arm64) and attaches the binaries to a GitHub Release for that tag (auto-generated release notes from commits). It does **not** build the macOS menu bar app - that's CGO/Cocoa-dependent and stays a local-only build via `make build-menubar`.
 
 Before tagging a release:
 

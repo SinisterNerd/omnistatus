@@ -26,7 +26,7 @@ sudo mv ost /usr/local/bin/
 
 ### From Binary
 
-Pre-built CLI binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are attached to each [GitHub Release](https://github.com/SinisterNerd/omnistatus/releases). Download the one matching your platform, then on macOS/Linux:
+Pre-built CLI binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64/arm64) are attached to each [GitHub Release](https://github.com/SinisterNerd/omnistatus/releases). Download the one matching your platform, then on macOS/Linux:
 
 ```bash
 chmod +x ost-<os>-<arch>

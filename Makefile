@@ -13,7 +13,7 @@ build:
 # combinations, not just assumed. This is also what
 # .github/workflows/release.yml runs per-target on a tag push; keep the
 # platform list here in sync with that workflow's matrix.
-RELEASE_PLATFORMS = darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
+RELEASE_PLATFORMS = darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
 release:
 	@mkdir -p dist
 	@for platform in $(RELEASE_PLATFORMS); do \
