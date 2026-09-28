@@ -94,9 +94,11 @@ ost clear
 Add to your `~/.tmux.conf`:
 
 ```tmux
-bind-key -n M-a run-shell 'ost set --status "In tmux" --emoji ":terminal:" --state active'
+bind-key -n M-a run-shell "ost set --status 'In tmux' --emoji ':computer:' --state active"
 bind-key -n M-w run-shell 'ost clear'
 ```
+
+Double quotes around the whole `run-shell` command, single quotes for the individual values - not the other way around. tmux's own config-file parser (separate from your shell) mishandles nested double quotes inside a single-quoted `run-shell` argument. See [`docs/TMUX.md`](docs/TMUX.md) for more tmux examples.
 
 ## Platform Capabilities
 

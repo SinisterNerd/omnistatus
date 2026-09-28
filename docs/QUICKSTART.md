@@ -70,7 +70,7 @@ make install
 
 Add to `~/.tmux.conf`:
 ```tmux
-bind-key -n M-a run-shell 'ost set --status "In tmux" --emoji ":terminal:" --state active'
+bind-key -n M-a run-shell "ost set --status 'In tmux' --emoji ':computer:' --state active"
 bind-key -n M-w run-shell 'ost clear'
 ```
 

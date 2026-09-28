@@ -40,10 +40,12 @@ Every field is optional - leaving any out falls back to a sensible default (the 
 Quick status changes bound to keys, so you never have to break focus to update your presence:
 
 ```tmux
-bind-key -n M-a run-shell 'ost set --status "In tmux" --emoji ":terminal:" --state active'
-bind-key -n M-b run-shell 'ost set --status "Heads down" --emoji ":brain:" --state dnd'
+bind-key -n M-a run-shell "ost set --status 'In tmux' --emoji ':computer:' --state active"
+bind-key -n M-b run-shell "ost set --status 'Heads down' --emoji ':brain:' --state dnd"
 bind-key -n M-w run-shell 'ost clear'
 ```
+
+Use double quotes around the whole `run-shell` command and single quotes for the individual `--status`/`--emoji` values, not the other way around - tmux's own config-file parser (separate from your shell) mishandles nested double quotes inside a single-quoted `run-shell` argument.
 
 `run-shell` fires the command in the background without blocking the UI, so these feel instant even though they're making live API calls.
 

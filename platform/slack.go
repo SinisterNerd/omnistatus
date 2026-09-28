@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -95,20 +96,50 @@ func (s *SlackUpdater) ClearPresence(ctx context.Context) error {
 	return nil
 }
 
-// updateProfileStatus updates the user's profile status message and emoji
+// slackAPIErrorCodeInvalidEmoji is the error code Slack's users.profile.set
+// returns when status_emoji isn't a valid emoji for this workspace (a typo,
+// or a :code: that's valid elsewhere but not a standard/custom emoji here).
+const slackAPIErrorCodeInvalidEmoji = "profile_status_set_failed_not_valid_emoji"
+
+// updateProfileStatus updates the user's profile status message and emoji.
+// If Slack rejects the emoji specifically (invalid/unrecognized code), this
+// retries once with the emoji dropped so the status *text* still gets set
+// rather than failing the whole update over a cosmetic detail - the same
+// "degrade gracefully instead of hard-failing" approach used elsewhere in
+// this project (the tmux "?" fallback, GitHub's default-busy-emoji
+// fallback). A genuinely bad token, network error, etc. still fails
+// normally - only this one specific, recoverable error code gets a retry.
 func (s *SlackUpdater) updateProfileStatus(ctx context.Context, status, emoji string) error {
 	// Slack Web API endpoint
 	const slackAPIEndpoint = "https://slack.com/api/users.profile.set"
 
-	// Prepare request payload
-	payload := map[string]interface{}{
-		"profile": map[string]string{
-			"status_text":  status,
-			"status_emoji": emoji,
-		},
+	buildPayload := func(emoji string) map[string]interface{} {
+		return map[string]interface{}{
+			"profile": map[string]string{
+				"status_text":  status,
+				"status_emoji": emoji,
+			},
+		}
 	}
 
-	return s.doRequest(ctx, slackAPIEndpoint, payload)
+	err := s.doRequest(ctx, slackAPIEndpoint, buildPayload(emoji))
+	if err == nil {
+		return nil
+	}
+
+	var apiErr *slackAPIError
+	if emoji == "" || !errors.As(err, &apiErr) || apiErr.code != slackAPIErrorCodeInvalidEmoji {
+		return err
+	}
+
+	if retryErr := s.doRequest(ctx, slackAPIEndpoint, buildPayload("")); retryErr != nil {
+		// The retry failed too - return the *original* error, since it's
+		// the more informative one (names the actual problem: the emoji).
+		return err
+	}
+
+	fmt.Printf("slack: warning: emoji %q was rejected as invalid, status text set without it\n", emoji)
+	return nil
 }
 
 // setPresence sets the user's presence status (away, active, auto)
@@ -121,6 +152,20 @@ func (s *SlackUpdater) setPresence(ctx context.Context, presence string) error {
 	}
 
 	return s.doRequest(ctx, slackAPIEndpoint, payload)
+}
+
+// slackAPIError wraps a Slack Web API error response, exposing the raw
+// error code (e.g. "profile_status_set_failed_not_valid_emoji") so callers
+// can react to specific failures instead of only string-matching the
+// formatted error message. Error() intentionally matches the original
+// plain "slack API error: %s" format so this is a transparent change for
+// any caller that doesn't specifically check the code via errors.As.
+type slackAPIError struct {
+	code string
+}
+
+func (e *slackAPIError) Error() string {
+	return fmt.Sprintf("slack API error: %s", e.code)
 }
 
 // doRequest performs a POST request to the Slack API
@@ -169,7 +214,7 @@ func (s *SlackUpdater) doRequest(ctx context.Context, endpoint string, payload m
 	ok, exists := response["ok"].(bool)
 	if !exists || !ok {
 		errMsg, _ := response["error"].(string)
-		return fmt.Errorf("slack API error: %s", errMsg)
+		return &slackAPIError{code: errMsg}
 	}
 
 	return nil
