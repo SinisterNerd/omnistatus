@@ -1,0 +1,41 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+dist/
+build/
+ost
+ost-menubar
+OmniStatus.app/
+
+# Config files (local)
+config.yaml
+*.status_cache.json
+
+# AI session handoff doc - internal working notes, not for publishing
+docs/dev/HANDOFF.md

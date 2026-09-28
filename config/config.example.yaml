@@ -1,0 +1,118 @@
+# omniStatus Configuration File
+# Location: ~/.config/omnistatus/config.yaml
+#
+# This file stores your API tokens and platform-specific configurations
+# for updating your presence across multiple communication platforms.
+#
+# SECURITY: Keep this file private! It contains authentication tokens.
+# Permissions should be set to 0600 (read/write for owner only).
+
+# Slack Configuration
+slack:
+  enabled: true
+  token: "xoxp-YOUR_SLACK_USER_TOKEN_HERE"
+  # Slack tokens can be obtained from:
+  # 1. Create a Slack app at https://api.slack.com/apps
+  # 2. Add User Token Scopes:
+  #      users.profile:write  - required to set status text/emoji
+  #      users:write          - required to set presence (active/away)
+  #      users:read           - required to read presence via `ost status`
+  #      users.profile:read   - optional, lets `ost status` show status text too
+  # 3. Generate a User OAuth Token
+  #
+  # Optional: how this platform renders in `ost status --format tmux`.
+  # Every field is optional and falls back to a default (platform initial
+  # as the icon; plain "green"/"yellow"/"red" as the colors). See the
+  # "tmux" block on the github section below for a fuller example.
+  # tmux:
+  #   icon: ""
+
+# Microsoft Teams Configuration
+# Uses delegated OAuth 2.0 (Authorization Code flow), NOT app-only/client
+# credentials. This is required because Microsoft Graph's presence-setting
+# endpoints (setUserPreferredPresence) only work with delegated auth.
+#
+# Only availability (Available/Away/DoNotDisturb) can be set - Microsoft
+# Graph API does not support setting a custom status message.
+teams:
+  enabled: true
+  token: "YOUR_ACCESS_TOKEN_HERE"          # short-lived (~1hr), auto-refreshed
+  extra:
+    refresh_token: "YOUR_REFRESH_TOKEN_HERE"  # long-lived, used to auto-renew
+    client_id: "YOUR_AZURE_APP_CLIENT_ID_HERE"
+    tenant_id: "YOUR_AZURE_TENANT_ID_HERE"
+    # client_secret is usually NOT needed if your app is registered as a
+    # "Mobile and desktop application" (public client) in Azure. Only set
+    # this if your app is a confidential/Web client.
+    # client_secret: "YOUR_CLIENT_SECRET_HERE"
+  # Teams setup requires Azure AD application registration with DELEGATED
+  # permissions (not Application permissions):
+  # 1. Register an app in Azure Portal (https://portal.azure.com)
+  # 2. Authentication -> Add platform -> Mobile and desktop applications
+  #    -> add redirect URI: http://localhost:8765/callback
+  # 3. API permissions -> Add a permission -> Microsoft Graph ->
+  #    Delegated permissions -> add Presence.ReadWrite, User.Read
+  #    -> Grant admin consent
+  # 4. Run the one-time browser sign-in flow to get your initial
+  #    access_token + refresh_token (see TEAMS_SETUP.md)
+  # 5. omniStatus automatically refreshes the access_token using the
+  #    refresh_token and saves the new tokens back to this file
+
+# Discord Configuration
+# STATUS: PAUSED / EXPERIMENTAL. The implementation is protocol-correct
+# (verified: handshake, nonce, and command are all accepted by Discord
+# with no errors), but whether Rich Presence actually displays depends on
+# client-side settings that vary across Discord versions/accounts and
+# haven't been reliably reproducible. See README.md "Platform Capabilities"
+# section for details. Feel free to enable and try it, but don't be
+# surprised if it doesn't visibly update your status.
+discord:
+  enabled: false
+  extra:
+    client_id: "YOUR_DISCORD_APP_CLIENT_ID_HERE"
+  # Discord setup uses local Rich Presence (RPC):
+  # 1. Create an application at https://discord.com/developers/applications
+  # 2. Copy the Client ID from the General Information tab
+  # 3. omniStatus connects to the local Discord IPC socket (no token needed)
+  # 4. Discord desktop app must be running
+
+# GitHub Configuration
+# GitHub has no "availability" concept - only a profile status (emoji +
+# message), optionally with an expiration and a "Busy" (limitedAvailability)
+# flag. Because of this, --status/--emoji are effectively required for
+# GitHub to do anything visible; --state only toggles the Busy flag
+# (anything other than "active" sets it to true).
+github:
+  enabled: true
+  token: "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN_HERE"
+  # 1. Go to https://github.com/settings/tokens
+  # 2. Generate a new token (classic) with the "user" scope
+  #    (this covers read:user/user:email, needed to read/write your status)
+  # 3. Copy the token (starts with "ghp_") into this file
+  #
+  # Supports --duration (maps to GitHub's expiresAt field) - GitHub will
+  # automatically clear the status once it expires, same as Teams.
+  #
+  # Optional: how this platform renders in `ost status --format tmux`,
+  # which prints one colored glyph per enabled/readable platform on a
+  # single line (great for tmux's `set -g status-right`). "icon" can be
+  # any string - a letter, a word, or a Nerd Font glyph if your terminal
+  # font has one (e.g. the user's font has dedicated Teams/Slack/GitHub
+  # icons). Colors accept anything tmux's `#[fg=...]` understands: a color
+  # name, a 256-color index ("colour208"), or (tmux 2.9+ with a truecolor
+  # terminal) a hex value ("#ff8800"). Any field left out uses the default.
+  tmux:
+    icon: "GH"
+    color_green: "green"
+    color_yellow: "yellow"
+    color_red: "colour196"
+
+# Status Cache Configuration (optional)
+# Caches `ost status` results locally for a short TTL, to avoid redundant
+# API calls when multiple callers (e.g. several tmux panes/sessions each
+# polling their status bar every few seconds) query status around the
+# same time. This ONLY affects `ost status` - `ost set`/`ost clear` always
+# make live requests. Disabled by default.
+cache:
+  enabled: false
+  ttl: "10s"  # how long a cached result is considered fresh (Go duration format, e.g. "10s", "30s", "1m")
