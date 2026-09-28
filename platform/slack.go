@@ -24,7 +24,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/rspence/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/config"
 )
 
 // SlackUpdater implements PresenceUpdater for Slack

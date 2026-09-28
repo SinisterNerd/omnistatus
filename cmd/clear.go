@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/rspence/omnistatus/config"
-	"github.com/rspence/omnistatus/platform"
+	"github.com/SinisterNerd/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/platform"
 )
 
 // clearCmd represents the clear command

@@ -35,9 +35,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SinisterNerd/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/platform"
 	"github.com/caseymrm/menuet/v2"
-	"github.com/rspence/omnistatus/config"
-	"github.com/rspence/omnistatus/platform"
 )
 
 const refreshInterval = 15 * time.Second

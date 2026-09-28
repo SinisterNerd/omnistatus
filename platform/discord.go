@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/rspence/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/config"
 )
 
 // DiscordUpdater implements PresenceUpdater for Discord Rich Presence.

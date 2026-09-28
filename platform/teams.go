@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rspence/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/config"
 )
 
 // TeamsUpdater implements PresenceUpdater for Microsoft Teams.

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rspence/omnistatus/config"
-	"github.com/rspence/omnistatus/platform"
+	"github.com/SinisterNerd/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/platform"
 )
 
 // getTeamsUpdater creates a TeamsUpdater from config, automatically running

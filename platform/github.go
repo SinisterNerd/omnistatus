@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rspence/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/config"
 )
 
 // GitHubUpdater implements PresenceUpdater for GitHub's profile status.

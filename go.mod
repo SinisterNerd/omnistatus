@@ -1,4 +1,4 @@
-module github.com/rspence/omnistatus
+module github.com/SinisterNerd/omnistatus
 
 go 1.21
 

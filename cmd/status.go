@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rspence/omnistatus/config"
-	"github.com/rspence/omnistatus/platform"
+	"github.com/SinisterNerd/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/platform"
 	"github.com/spf13/cobra"
 )
 

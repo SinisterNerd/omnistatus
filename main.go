@@ -17,7 +17,7 @@
 package main
 
 import (
-	"github.com/rspence/omnistatus/cmd"
+	"github.com/SinisterNerd/omnistatus/cmd"
 )
 
 func main() {

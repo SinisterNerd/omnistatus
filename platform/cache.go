@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rspence/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/config"
 )
 
 // defaultCacheTTL is used when caching is enabled but no ttl is configured.

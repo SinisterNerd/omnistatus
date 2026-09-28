@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rspence/omnistatus/config"
+	"github.com/SinisterNerd/omnistatus/config"
 	"github.com/spf13/cobra"
 )
 
