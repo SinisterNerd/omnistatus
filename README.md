@@ -18,15 +18,22 @@ A lightweight, unified status and presence orchestrator for terminal-centric dev
 ### From Source
 
 ```bash
-git clone https://github.com/rspence/omnistatus.git
+git clone https://github.com/SinisterNerd/omnistatus.git
 cd omnistatus
-go build -o ost
+go build -o ost main.go
 sudo mv ost /usr/local/bin/
 ```
 
-### From Binary (Coming Soon)
+### From Binary
 
-Pre-built binaries will be available for macOS, Linux, and Windows.
+Pre-built CLI binaries for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) are attached to each [GitHub Release](https://github.com/SinisterNerd/omnistatus/releases). Download the one matching your platform, then on macOS/Linux:
+
+```bash
+chmod +x ost-<os>-<arch>
+sudo mv ost-<os>-<arch> /usr/local/bin/ost
+```
+
+Note: only the CLI is cross-platform. The macOS menu bar app (`cmd/menubar`) depends on Cocoa/CGO and must be built locally on a Mac via `make build-menubar` - it isn't part of the release binaries.
 
 ## macOS Menu Bar App (Optional)
 

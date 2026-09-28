@@ -1,10 +1,30 @@
-.PHONY: build build-menubar test clean help install lint fmt
+.PHONY: build build-menubar release test clean help install lint fmt
 
 # Build the binary
 build:
 	@echo "Building omniStatus..."
 	go build -o ost main.go
 	@echo "Build complete: ./ost"
+
+# Cross-compile release binaries of the CLI (NOT the menu bar app - that's
+# macOS-only/CGO and has to be built locally via `make build-menubar`, see
+# below) for every officially supported platform into dist/. Pure Go, no
+# CGO needed - verified by actually running each of these GOOS/GOARCH
+# combinations, not just assumed. This is also what
+# .github/workflows/release.yml runs per-target on a tag push; keep the
+# platform list here in sync with that workflow's matrix.
+RELEASE_PLATFORMS = darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
+release:
+	@mkdir -p dist
+	@for platform in $(RELEASE_PLATFORMS); do \
+		GOOS=$${platform%/*}; \
+		GOARCH=$${platform#*/}; \
+		OUT=dist/ost-$$GOOS-$$GOARCH; \
+		if [ "$$GOOS" = "windows" ]; then OUT=$$OUT.exe; fi; \
+		echo "Building $$OUT..."; \
+		CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH go build -o $$OUT main.go || exit 1; \
+	done
+	@echo "Release binaries in dist/"
 
 # Build the optional macOS menu bar app (see cmd/menubar) as a minimal
 # unsigned .app bundle. Not built by `make build` - it pulls in a
@@ -66,7 +86,7 @@ lint:
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -f ost ost-menubar
-	rm -rf OmniStatus.app
+	rm -rf OmniStatus.app dist/
 	go clean
 
 # Display help
@@ -75,6 +95,7 @@ help:
 	@echo "  make build          - Build the ost binary"
 	@echo "  make build-menubar  - Build the optional OmniStatus.app menu bar app"
 	@echo "  make run-menubar    - Build and run the menu bar app in the foreground"
+	@echo "  make release        - Cross-compile ost for macOS/Linux/Windows into dist/"
 	@echo "  make install        - Build and install to /usr/local/bin"
 	@echo "  make test     - Run tests"
 	@echo "  make fmt      - Format code"

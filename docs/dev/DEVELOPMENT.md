@@ -13,7 +13,7 @@ This guide covers how to set up your development environment and contribute to o
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/rspence/omnistatus.git
+git clone https://github.com/SinisterNerd/omnistatus.git
 cd omnistatus
 ```
 
@@ -329,12 +329,7 @@ VS Code + Go extension:
 
 ## Version Management
 
-The project uses semantic versioning. Update version tags:
-
-```bash
-git tag -a v0.1.0 -m "Initial release"
-git push origin v0.1.0
-```
+The project uses semantic versioning (`vMAJOR.MINOR.PATCH` git tags). Pushing a tag also triggers the automated release build - see "Release Checklist" below for the full process.
 
 ## Documentation
 
@@ -425,18 +420,24 @@ go get github.com/spf13/cobra@latest
 
 ## Release Checklist
 
-Before releasing a new version:
+Releasing is automated: pushing a `v*` tag triggers `.github/workflows/release.yml`, which cross-compiles the CLI for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64) and attaches the binaries to a GitHub Release for that tag (auto-generated release notes from commits). It does **not** build the macOS menu bar app - that's CGO/Cocoa-dependent and stays a local-only build via `make build-menubar`.
+
+Before tagging a release:
 
 - [ ] All tests passing: `make test`
 - [ ] Code formatted: `make fmt`
 - [ ] No linting errors: `make lint`
 - [ ] README.md updated
-- [ ] CHANGELOG.md created/updated
-- [ ] Version bumped in code (if applicable)
-- [ ] Build binaries for all platforms
-- [ ] Test binaries on target platforms
-- [ ] Create GitHub release with binaries
-- [ ] Tag version in git
+- [ ] Sanity-check the cross-compile locally: `make release` (same platform matrix the workflow uses, into `dist/` - gitignored, just for a local pre-flight check)
+
+Then cut the release:
+
+```bash
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
+Watch the "Release" workflow run under the repo's Actions tab; the release with binaries appears automatically once it finishes.
 
 ## Resources
 

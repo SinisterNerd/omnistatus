@@ -125,6 +125,15 @@ func (d *DiscordUpdater) ClearPresence(ctx context.Context) error {
 // handshake, sends the given command, and reads back Discord's response
 // to detect errors. Each call uses a fresh connection since Discord Rich
 // Presence persists after the socket closes (until cleared or replaced).
+// KNOWN GAP if this is ever un-paused: getDiscordSocketPath() below returns
+// a plausible-looking Windows named-pipe path (`\\.\pipe\discord-ipc-0`),
+// but this dial call is written for Unix-domain-socket semantics
+// (net.DialUnix, Net: "unix"), which is not how Windows named pipes work.
+// It compiles fine on Windows (confirmed via cross-platform release build
+// testing - not a build blocker), but would almost certainly fail to
+// actually connect at runtime. Fixing this for real means using a Windows
+// named-pipe library (e.g. github.com/Microsoft/go-winio) behind a
+// build-tagged file, not just tweaking this call. See HANDOFF.md §4.4/§5.6.
 func (d *DiscordUpdater) sendCommand(payload map[string]interface{}) error {
 	socketPath, err := d.getDiscordSocketPath()
 	if err != nil {

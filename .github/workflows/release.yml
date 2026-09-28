@@ -1,0 +1,58 @@
+name: Release
+
+# Builds and publishes the ost CLI (not the macOS menu bar app - that's
+# CGO/Cocoa-dependent and has to be built locally via `make build-menubar`)
+# for every officially supported platform whenever a version tag is pushed.
+#
+# Keep this matrix in sync with RELEASE_PLATFORMS in the Makefile's
+# `release` target, which does the same cross-compile locally for testing
+# without needing a tag push.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          ext=""
+          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
+          go build -o "ost-${GOOS}-${GOARCH}${ext}" main.go
+
+      # Appends to the release for this tag, creating it on the first
+      # matrix leg to finish. Each leg only uploads its own binary, so
+      # this is safe to run concurrently across the matrix.
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ost-*
+          generate_release_notes: true
