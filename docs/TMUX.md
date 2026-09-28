@@ -12,7 +12,7 @@ set -ag status-right "#(ost status --format tmux) "
 
 This prints one colored glyph per enabled, readable platform on a single line - e.g. a green `S` (Slack, active), a yellow `T` (Teams, away), a red `G` (GitHub, busy). A platform that fails to respond renders as a dim `?` instead of breaking the line.
 
-Here's a real status bar using it, second icon from the left, alongside other status-right segments (weather, hostname, clock):
+Here's a real status bar using it, alongside other status-right segments (weather).  It's using [nerdfont](https://www.nerdfonts.com) glyphs:
 
 ![tmux status bar with omniStatus glyphs](stat.png)
 
