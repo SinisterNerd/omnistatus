@@ -326,13 +326,7 @@ Your Microsoft Graph API token has expired. Re-authenticate to obtain a fresh to
 
 ## Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Contributions are welcome! See [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) for the process and our (currently unenforced, but appreciated) [Developer Certificate of Origin](https://developercertificate.org/) sign-off convention.
 
 ## License
 
