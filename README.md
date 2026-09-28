@@ -12,7 +12,7 @@ A lightweight, unified status and presence orchestrator for terminal-centric dev
 - **Minimal Configuration**: Simple YAML configuration at `~/.config/omnistatus/config.yaml`
 - **Rich Presence Support**: Integrates with Discord via local RPC socket (no self-botting)
 - **Extensible Architecture**: Generic interface design makes adding new platforms straightforward
-- **tmux-Friendly**: Designed for binding to keyboard shortcuts in terminal multiplexers
+- **tmux-Friendly**: Designed for binding to keyboard shortcuts in terminal multiplexers and displaying status on the status line
 
 ## Installation
 
