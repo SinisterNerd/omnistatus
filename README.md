@@ -346,6 +346,10 @@ GNU Affero General Public License v3.0 (AGPLv3) - see LICENSE file for details
 ## Roadmap
 
 - [x] Binary releases for macOS, Linux, Windows - see [GitHub Releases](https://github.com/SinisterNerd/omnistatus/releases)
+- [ ] **Windows status/tray app** - equivalent of the macOS menu bar app (`cmd/menubar`). Likely pure Go, no CGO needed - Windows' tray API (`Shell_NotifyIcon`) is a plain Win32 C API callable via `syscall`/`golang.org/x/sys/windows`, unlike Cocoa on macOS which requires CGO + Objective-C bridging. See `docs/dev/HANDOFF.md` §10 for the fuller technical writeup.
+- [ ] **Web service / JSON API** - self-hosted HTTP layer over `platform`/`config` (same reuse pattern as the CLI and menu bar apps), enabling clients this project won't build natively itself: a browser-based PWA for iOS/Android ("Add to Home Screen", no App Store), home automation (Home Assistant, etc.), or anything else that can make an HTTP request. Planned as a **separate repo**, not part of this one - see `docs/dev/HANDOFF.md` §10 for why, plus the licensing/hosting considerations for a possible future paid tier.
+- [ ] Native iOS/iPadOS app (Swift/SwiftUI) and native Android app (Kotlin), consuming the web API above
+- [ ] Linux status/tray tool - **on hold pending demand**. The Linux desktop tray ecosystem is meaningfully more fragmented than Windows/macOS (no OS-level tray API, GNOME dropped native tray support entirely, DBus/StatusNotifierItem is the closest thing to a standard, some window managers have no tray concept at all). In the meantime, `ost status --format json` already gives Linux users with tiling WMs/custom bars a way to build their own display.
 - [ ] Configuration wizard (`ost config init`)
 - [ ] Revisit Discord Rich Presence display reliability (currently paused - protocol implementation works, client-side display is inconsistent)
 - [ ] Lark integration
