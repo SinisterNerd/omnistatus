@@ -3,7 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/SinisterNerd/omnistatus)](https://github.com/SinisterNerd/omnistatus/releases/latest)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-A lightweight, unified status and presence orchestrator for terminal-centric developers. Update your availability across Slack, Microsoft Teams, and Discord simultaneously with a single CLI command.
+A lightweight, unified status and presence orchestrator for terminal-centric developers. Update your availability across Slack, Microsoft Teams, and GitHub simultaneously with a single CLI command.
 
 ## Features
 
@@ -60,15 +60,18 @@ slack:
 
 teams:
   enabled: true
-  token: "YOUR_GRAPH_API_TOKEN"
   extra:
-    user_id: "YOUR_AZURE_AD_OBJECT_ID"
+    client_id: "YOUR_AZURE_APP_CLIENT_ID"
+    tenant_id: "YOUR_AZURE_TENANT_ID"
+  # token/refresh_token are filled in automatically on first run via a
+  # one-time device-code sign-in - see the Microsoft Teams section below
 
-discord:
+github:
   enabled: true
-  extra:
-    client_id: "YOUR_DISCORD_CLIENT_ID"
+  token: "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN"
 ```
+
+See [`config/config.example.yaml`](config/config.example.yaml) for the fully annotated reference, including optional per-platform tmux status-line settings and response caching (covered under [Configuration](#configuration) below).
 
 ### 2. Update Your Status
 
@@ -113,6 +116,21 @@ Not every platform supports both concepts omniStatus deals with:
 
 > **A note on Discord:** the Discord integration is implemented and technically correct (verified directly against Discord's RPC protocol - handshake, nonce, and command all succeed with no errors), but Discord Rich Presence display is gated behind client-side settings that vary between Discord versions/accounts and haven't been reliably reproducible for testing. Because of this volatility, and because Discord isn't a "business" tool for most users of this project, further Discord polish is **paused** rather than actively developed. The code path remains in place and may work as-is for some users/setups - it's simply not being chased further right now. This may be revisited in a future development phase.
 
+### `--state` Support By Platform
+
+Not every `--state` value produces a distinct effect on every platform - some platforms have fewer real states than the CLI does, so several values collapse into the same result:
+
+| State | Slack | Microsoft Teams | GitHub |
+|---|:---:|:---:|:---:|
+| `active` | ✅ Active | ✅ Available | ✅ Clears the "Busy" flag |
+| `away` | ✅ Away | ✅ Away | ⚠️ Sets "Busy" flag (no distinct "away") |
+| `dnd` | ⚠️ Collapses to Away | ✅ Do Not Disturb | ⚠️ Sets "Busy" flag |
+| `busy` | ⚠️ Collapses to Away | ✅ Busy | ⚠️ Sets "Busy" flag |
+| `brb` | ⚠️ Collapses to Away | ✅ Be Right Back | ⚠️ Sets "Busy" flag |
+| `offline` | ⚠️ Collapses to Away | ✅ Offline | ⚠️ Sets "Busy" flag |
+
+Slack only has two real presence states (active/away), so `dnd`/`busy`/`brb`/`offline` all map to "away" server-side - not a bug, just what Slack's API exposes. GitHub only has a single "Busy" boolean (`limitedAvailability`), so any non-`active` state sets it `true` with no finer granularity - see the [GitHub section](#github) below for the caveat about needing `--status`/`--emoji` text for it to actually take effect. Microsoft Teams is the only platform where all six states are genuinely distinct.
+
 ## Usage
 
 ### Commands
@@ -156,18 +174,45 @@ ost clear
 slack:
   enabled: true|false       # Enable/disable Slack integration
   token: "string"           # Slack User OAuth Token
+  tmux:                     # Optional: `ost status --format tmux` display (see below)
+    icon: "S"
+    color_green: "green"
+    color_yellow: "yellow"
+    color_red: "red"
 
 teams:
   enabled: true|false       # Enable/disable Teams integration
-  token: "string"           # Microsoft Graph API access token
+  token: "string"           # Access token (auto-filled/refreshed - don't set by hand)
   extra:
-    user_id: "string"       # Your Azure AD Object ID
+    client_id: "string"     # Azure app registration Client ID
+    tenant_id: "string"     # Azure tenant ID
+    refresh_token: "string" # Auto-filled after first sign-in - don't set by hand
+  tmux:
+    icon: "T"
+    color_green: "green"
+    color_yellow: "yellow"
+    color_red: "red"
 
-discord:
-  enabled: true|false       # Enable/disable Discord integration
-  extra:
-    client_id: "string"     # Discord application Client ID
+github:
+  enabled: true|false       # Enable/disable GitHub integration
+  token: "string"           # Personal Access Token (classic), `user` scope
+  tmux:
+    icon: "G"
+    color_green: "green"
+    color_yellow: "yellow"
+    color_red: "red"
+
+# Optional: cache `ost status`/tmux/menu bar reads locally for a short TTL,
+# so several callers polling around the same time (multiple tmux panes, the
+# menu bar app, etc.) don't each hit the live APIs separately. Never
+# affects `ost set`/`ost clear`, which always make live requests. Disabled
+# by default.
+cache:
+  enabled: true|false
+  ttl: "10s"                # Go duration string, e.g. "10s", "30s", "1m"
 ```
+
+Every `tmux:` block is optional and every field within it is optional - anything left out falls back to a sensible default (the platform's initial letter as the icon, plain `"green"`/`"yellow"`/`"red"` as the colors). `icon` accepts any string - a letter, a word, or a Nerd Font glyph if your terminal font has one. Colors accept anything tmux's `#[fg=...]` understands: a color name, a 256-color index (`"colour208"`), or (tmux 2.9+ with a truecolor terminal) a hex value (`"#ff8800"`). See `ost status --help` for the full tmux-format writeup, and the [macOS Menu Bar App](#macos-menu-bar-app-optional) section above - the menu bar app reuses `icon`'s *concept* but always renders plain letters natively, since native macOS menus can't render arbitrary custom/Nerd Font glyphs the way a terminal can.
 
 ## Platform Setup
 
@@ -185,16 +230,13 @@ discord:
 
 ### Microsoft Teams
 
-1. Register an app in [Azure Portal](https://portal.azure.com)
-2. Add API Permissions:
-   - `Presence.ReadWrite`
-   - `User.Read`
-3. Create a client secret
-4. Authenticate using OAuth 2.0 to obtain an access token
-5. Get your Azure AD Object ID (User profile in Azure Portal)
-6. Add token and user_id to config file
+Uses delegated OAuth 2.0 via the device code flow - no client secret, no local redirect server, works fine over SSH.
 
-**Note:** The token obtained from client credentials flow is sufficient for presence updates. For production use, consider implementing token refresh logic.
+1. Register an app in [Azure Portal](https://portal.azure.com)
+2. **Authentication** → Add a platform → **Mobile and desktop applications** (this makes it a public client - no client secret needed or accepted)
+3. **API permissions** → Add a permission → Microsoft Graph → **Delegated permissions** (not Application) → add `Presence.ReadWrite` and `User.Read` → Grant admin consent
+4. Add `client_id` and `tenant_id` (both from the app registration's Overview page) to your config file under `teams.extra`
+5. Run any `ost set` command - since `token`/`refresh_token` are missing, omniStatus automatically starts a one-time device-code sign-in: it prints a URL and a short code, you complete sign-in on any device with a browser, and the tokens are saved back to your config file automatically from then on (including silent refresh - access tokens expire ~1hr, the refresh token handles renewal transparently)
 
 ### Discord *(paused - see [Platform Capabilities](#platform-capabilities))*
 
@@ -216,7 +258,7 @@ GitHub has no availability/presence concept - only a profile status (the emoji +
 2. Generate a new token (classic) with the `user` scope
 3. Add the token to your config file
 
-**Note:** Since `--state` has no direct GitHub equivalent, it's repurposed to control the "Busy" (`limitedAvailability`) flag - any state other than `active` sets it to `true`. Because GitHub's status is *only* the emoji/message, running `ost set --state busy` with no `--status`/`--emoji` will set the Busy flag but won't display anything new, since there's no text to show.
+**Note:** Since `--state` has no direct GitHub equivalent, it's repurposed to control the "Busy" (`limitedAvailability`) flag - any state other than `active` sets it to `true`. GitHub's API silently ignores the whole update (including the Busy flag) if both emoji and message are empty, so `ost set --state busy` with no `--status`/`--emoji` automatically falls back to a default `:no_entry:` emoji to make sure the flag actually sticks; any emoji/message you do supply is used as-is.
 
 **`--duration` support:** GitHub natively supports auto-expiring statuses via `expiresAt`, same as Teams. `ost set --status "Heads down" --state busy --duration 2h` will automatically clear after 2 hours - GitHub handles this server-side, not omniStatus.
 
@@ -303,9 +345,8 @@ GNU Affero General Public License v3.0 (AGPLv3) - see LICENSE file for details
 
 ## Roadmap
 
-- [ ] Binary releases for macOS, Linux, Windows
+- [x] Binary releases for macOS, Linux, Windows - see [GitHub Releases](https://github.com/SinisterNerd/omnistatus/releases)
 - [ ] Configuration wizard (`ost config init`)
-- [ ] GitHub profile status integration
 - [ ] Revisit Discord Rich Presence display reliability (currently paused - protocol implementation works, client-side display is inconsistent)
 - [ ] Lark integration
 - [ ] Mattermost integration
