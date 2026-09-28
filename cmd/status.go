@@ -18,6 +18,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -78,17 +79,27 @@ anything tmux's #[fg=...] understands: a name, "colourNNN", or (tmux 2.9+
 with a truecolor terminal) a hex value like "#ff8800". A platform that
 fails to respond is rendered as a dim "?" rather than breaking the line.
 
+json format: a single JSON object keyed by platform name, e.g.
+'{"slack": {"availability": "away", "cached": false}}'. Includes
+"activity" and "expires_at" (RFC3339) when the platform reports them,
+"cached": true when the value came from the local cache, and an "error"
+field instead of the other fields if that platform failed to respond.
+The command's exit code is still non-zero if any platform errored, even
+though the JSON itself is always valid - check the "error" fields for
+which platform(s) failed rather than relying on exit code alone.
+
 Examples:
   ost status                                    # Show all readable platforms
   ost status --platform teams                   # Show only Teams
   ost status --platform teams --format short    # Just the raw value (for scripts)
-  ost status --format tmux                      # Single line for tmux status-right`,
+  ost status --format tmux                      # Single line for tmux status-right
+  ost status --format json                      # Machine-readable, e.g. for jq`,
 	RunE: runStatus,
 }
 
 func init() {
 	statusCmd.Flags().StringVar(&statusPlatformFlag, "platform", "", "Only show status for this platform (e.g., teams)")
-	statusCmd.Flags().StringVar(&statusFormatFlag, "format", "full", "Output format: full (name + availability + activity), short (just availability), or tmux (single colored horizontal line)")
+	statusCmd.Flags().StringVar(&statusFormatFlag, "format", "full", "Output format: full (name + availability + activity), short (just availability), tmux (single colored horizontal line), or json (machine-readable)")
 
 	RootCmd.AddCommand(statusCmd)
 }
@@ -178,18 +189,25 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	// would be useless in a tmux status bar.
 	var tmuxLine strings.Builder
 
+	// json format is likewise accumulated and printed once at the end - a
+	// single valid JSON document, not one JSON blob per line.
+	jsonResult := make(map[string]statusJSONEntry)
+
 	var firstErr error
 	for _, r := range readers {
 		info, fromCache, err := platform.GetCached(ctx, r.name, r.reader, cacheEnabled, cacheTTL, &cache, &cacheDirty)
 		if err != nil {
-			if statusFormatFlag == "tmux" {
+			switch statusFormatFlag {
+			case "tmux":
 				// Don't let one flaky platform break the whole status
 				// line - render it as a dim "?" and keep going.
 				if tmuxLine.Len() > 0 {
 					tmuxLine.WriteByte(' ')
 				}
 				tmuxLine.WriteString("#[fg=colour238]?#[default]")
-			} else {
+			case "json":
+				jsonResult[r.name] = statusJSONEntry{Error: err.Error()}
+			default:
 				fmt.Printf("%s: error: %v\n", r.name, err)
 			}
 			if firstErr == nil {
@@ -214,6 +232,13 @@ func runStatus(cmd *cobra.Command, args []string) error {
 				tmuxLine.WriteByte(' ')
 			}
 			fmt.Fprintf(&tmuxLine, "#[fg=%s]%s#[default]", color, icon)
+		case "json":
+			jsonResult[r.name] = statusJSONEntry{
+				Availability: info.Availability,
+				Activity:     info.Activity,
+				ExpiresAt:    info.ExpiresAt,
+				Cached:       fromCache,
+			}
 		default:
 			if info.ExpiresAt != nil {
 				fmt.Printf("%s: %s (%s) - expires %s%s\n", r.name, info.Availability, info.Activity, info.ExpiresAt.Local().Format("15:04:05"), cacheSuffix)
@@ -227,6 +252,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Println(tmuxLine.String())
 	}
 
+	if statusFormatFlag == "json" {
+		encoded, err := json.MarshalIndent(jsonResult, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to encode JSON output: %w", err)
+		}
+		fmt.Println(string(encoded))
+	}
+
 	if cacheEnabled && cacheDirty {
 		// Best-effort: a failure to persist the cache shouldn't fail the
 		// command, since the status was already successfully retrieved
@@ -235,4 +268,15 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	return firstErr
+}
+
+// statusJSONEntry is one platform's entry in `ost status --format json`'s
+// output map (keyed by platform name). Either Availability is populated
+// (success) or Error is (failure) - never both.
+type statusJSONEntry struct {
+	Availability string     `json:"availability,omitempty"`
+	Activity     string     `json:"activity,omitempty"`
+	ExpiresAt    *time.Time `json:"expires_at,omitempty"`
+	Cached       bool       `json:"cached"`
+	Error        string     `json:"error,omitempty"`
 }
