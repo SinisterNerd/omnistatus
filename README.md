@@ -1,5 +1,7 @@
 # omniStatus (ost)
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+
 A lightweight, unified status and presence orchestrator for terminal-centric developers. Update your availability across Slack, Microsoft Teams, and Discord simultaneously with a single CLI command.
 
 ## Features
