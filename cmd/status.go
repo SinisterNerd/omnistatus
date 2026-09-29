@@ -79,6 +79,11 @@ anything tmux's #[fg=...] understands: a name, "colourNNN", or (tmux 2.9+
 with a truecolor terminal) a hex value like "#ff8800". A platform that
 fails to respond is rendered as a dim "?" rather than breaking the line.
 
+By default each platform shows as just its icon. Set "display:
+tmux_show_state: true" (a top-level config section, not per-platform) to
+also append the raw state text after each icon, e.g. "S Away" instead of
+just "S".
+
 json format: a single JSON object keyed by platform name, e.g.
 '{"slack": {"availability": "away", "cached": false}}'. Includes
 "activity" and "expires_at" (RFC3339) when the platform reports them,
@@ -228,10 +233,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			bucket := platform.Bucket(r.name, info.Availability)
 			icon := r.cfgBlock.Icon(strings.ToUpper(r.name[:1]))
 			color := r.cfgBlock.ColorFor(bucket)
+			label := icon
+			if cfg.TmuxShowStateOrDefault() {
+				label = icon + " " + info.Availability
+			}
 			if tmuxLine.Len() > 0 {
 				tmuxLine.WriteByte(' ')
 			}
-			fmt.Fprintf(&tmuxLine, "#[fg=%s]%s#[default]", color, icon)
+			fmt.Fprintf(&tmuxLine, "#[fg=%s]%s#[default]", color, label)
 		case "json":
 			jsonResult[r.name] = statusJSONEntry{
 				Availability: info.Availability,

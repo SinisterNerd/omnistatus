@@ -122,3 +122,21 @@ github:
 cache:
   enabled: false
   ttl: "10s"  # how long a cached result is considered fresh (Go duration format, e.g. "10s", "30s", "1m")
+
+# Display Preferences (optional, global - not per-platform)
+# Every field is optional; leaving this whole section out keeps the
+# original behavior each of these had before it became configurable.
+display:
+  # Windows tray app's floating status window only (cmd/traywindows):
+  # "vertical" (default) stacks one platform per row; "horizontal" lays
+  # them out side by side in one row instead.
+  tray_layout: "vertical"
+  # Windows tray app only: show each platform's raw state text (e.g.
+  # "Away", "Busy") next to its icon. Defaults to true - this was already
+  # always-on before this option existed.
+  tray_show_state: true
+  # `ost status --format tmux` only: append state text after each icon
+  # (e.g. "S Away" instead of just "S"). Defaults to false - tmux lines
+  # are more space-constrained than the floating window, so icon-only
+  # stays the default; set true to opt in to the fuller look.
+  tmux_show_state: false

@@ -87,8 +87,10 @@ const (
 	dtVCenter    = 0x00000004
 	dtLeft       = 0x00000000
 
-	detailsWindowWidth   = 260
+	detailsWindowWidth   = 260 // vertical layout: fixed width, height grows with line count
 	detailsLineHeight    = 26
+	detailsCellWidth     = 130 // horizontal layout: fixed per-platform cell width, window width grows with line count
+	detailsRowHeight     = 36  // horizontal layout: fixed window height (one row)
 	detailsPadding       = 10
 	detailsScreenMarginX = 12
 	detailsScreenMarginY = 60 // rough clearance above the taskbar - not taskbar-aware, see note below
@@ -178,6 +180,12 @@ var (
 	detailsMu    sync.Mutex
 	detailsLines []detailsLine
 
+	// detailsLayout is "vertical" (default) or "horizontal" - set once at
+	// startup from config (display.tray_layout) via SetDetailsLayout,
+	// before the window is shown. Not hot-reloadable, same as the rest of
+	// this app's config (see main.go's package doc comment).
+	detailsLayout atomic.Value
+
 	fontCache   = map[string]windows.Handle{}
 	fontCacheMu sync.Mutex
 )
@@ -257,11 +265,32 @@ func detailsWindowRect(lineCount int) (x, y, w, h int32) {
 	screenW, _, _ := pGetSystemMetrics.Call(0) // SM_CXSCREEN
 	screenH, _, _ := pGetSystemMetrics.Call(1) // SM_CYSCREEN
 
-	h = int32(detailsPadding*2 + lineCount*detailsLineHeight)
-	w = detailsWindowWidth
+	if currentLayout() == "horizontal" {
+		w = int32(detailsPadding*2 + lineCount*detailsCellWidth)
+		h = detailsRowHeight
+	} else {
+		w = detailsWindowWidth
+		h = int32(detailsPadding*2 + lineCount*detailsLineHeight)
+	}
 	x = int32(screenW) - w - detailsScreenMarginX
 	y = int32(screenH) - h - detailsScreenMarginY
 	return x, y, w, h
+}
+
+// SetDetailsLayout sets the window's layout ("vertical" or "horizontal")
+// for all future paints/resizes. Call once at startup, before the window
+// is shown - not meant to change at runtime.
+func SetDetailsLayout(layout string) {
+	detailsLayout.Store(layout)
+}
+
+// currentLayout returns the configured layout, defaulting to "vertical"
+// if SetDetailsLayout was never called or given an empty string.
+func currentLayout() string {
+	if v, ok := detailsLayout.Load().(string); ok && v != "" {
+		return v
+	}
+	return "vertical"
 }
 
 // ToggleDetailsWindow shows the window if hidden, hides it if shown.
@@ -369,14 +398,21 @@ func paintDetailsWindow(hwnd windows.Handle) {
 	detailsMu.Unlock()
 
 	textFont := getOrCreateFont("", 15)
+	horizontal := currentLayout() == "horizontal"
 
 	for i, line := range lines {
-		top := int32(detailsPadding + i*detailsLineHeight)
-		lineRect := rect{
-			Left:   detailsPadding,
-			Top:    top,
-			Right:  detailsWindowWidth - detailsPadding,
-			Bottom: top + detailsLineHeight,
+		var lineRect rect
+		if horizontal {
+			left := int32(detailsPadding + i*detailsCellWidth)
+			lineRect = rect{Left: left, Top: 0, Right: left + detailsCellWidth, Bottom: detailsRowHeight}
+		} else {
+			top := int32(detailsPadding + i*detailsLineHeight)
+			lineRect = rect{
+				Left:   detailsPadding,
+				Top:    top,
+				Right:  detailsWindowWidth - detailsPadding,
+				Bottom: top + detailsLineHeight,
+			}
 		}
 
 		// Icon glyph, in its own font/color if configured.

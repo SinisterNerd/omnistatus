@@ -121,6 +121,7 @@ func main() {
 
 func onReady() {
 	systray.SetTooltip("omniStatus")
+	SetDetailsLayout(appConfig.TrayLayoutOrDefault())
 	go startDetailsWindow()
 	buildMenu()
 	refresh()
@@ -334,9 +335,23 @@ func refresh() {
 		// config.TmuxDisplayConfig's Font field.
 		icon := e.cfgBlock.Icon(strings.ToUpper(e.name[:1]))
 		iconColor := parseColor(e.cfgBlock.ColorFor(bucket), bucketColor[bucket])
+
+		// A custom icon already identifies the platform, so the "Slack:"/
+		// "Teams:"/"GitHub:" label is redundant and dropped in that case -
+		// only shown when falling back to the plain initial letter, which
+		// is less obviously self-explanatory on its own. State text is
+		// separately toggled by display.tray_show_state (default true).
+		var textParts []string
+		if e.cfgBlock.Icon("") == "" {
+			textParts = append(textParts, displayName(e.name))
+		}
+		if appConfig.TrayShowStateOrDefault() {
+			textParts = append(textParts, info.Availability)
+		}
+
 		winLines = append(winLines, detailsLine{
 			Icon: icon, IconColor: iconColor, IconFont: e.cfgBlock.Font(""),
-			Text: fmt.Sprintf("%s: %s", displayName(e.name), info.Availability),
+			Text: strings.Join(textParts, ": "),
 		})
 	}
 

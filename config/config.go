@@ -48,7 +48,16 @@ type PlatformConfig struct {
 // unrecognized value there just falls back to the plain default color for
 // that bucket.
 type TmuxDisplayConfig struct {
-	Icon        string `yaml:"icon,omitempty"`         // e.g. "" (Nerd Font glyph), "S", "●"
+	// Icon is really "whatever short label identifies this platform" -
+	// despite the name, it's plain text, not restricted to symbols: a
+	// single letter ("S"), a Nerd Font glyph (""), a plain word
+	// ("Slack"), or any other short string works equally well. Kept named
+	// "icon" for backward compatibility with already-published configs
+	// rather than renamed to something more accurate like "label" - a
+	// pure rename would touch a lot of code/docs for zero functional
+	// gain, so this comment (and the ones in README.md/config docs) does
+	// the clarifying instead.
+	Icon        string `yaml:"icon,omitempty"`         // e.g. "" (Nerd Font glyph), "S", "●", "Slack"
 	ColorGreen  string `yaml:"color_green,omitempty"`  // used when availability maps to "available"
 	ColorYellow string `yaml:"color_yellow,omitempty"` // used when availability maps to "away/transitional"
 	ColorRed    string `yaml:"color_red,omitempty"`    // used when availability maps to "busy/dnd/offline"
@@ -108,6 +117,66 @@ func (p *PlatformConfig) ColorFor(bucket string) string {
 	return bucket
 }
 
+// DisplayConfig holds global (not per-platform) display preferences -
+// currently just the two things that came up as "nice, not necessary"
+// polish after the Windows tray app's floating status window shipped.
+// Every field is optional; unset falls back to whatever the current
+// behavior already was before these existed, so a config with no
+// `display:` section at all behaves exactly as before.
+//
+// Deliberately not extended to the macOS menu bar app for now - menuet
+// (the library it's built on) can't draw multi-line/repositionable
+// content the way the Windows floating window or a tmux line can, so
+// these options wouldn't have anywhere sensible to apply.
+type DisplayConfig struct {
+	// TrayLayout controls the Windows tray app's floating status window:
+	// "vertical" (default - one platform per row, stacked) or
+	// "horizontal" (one platform per column, side by side).
+	TrayLayout string `yaml:"tray_layout,omitempty"`
+
+	// TrayShowState controls whether the Windows floating window shows
+	// each platform's raw state text (e.g. "Away", "Busy") alongside its
+	// icon. Defaults to true - this was already always-on before this
+	// option existed, so leaving it unset keeps that behavior.
+	TrayShowState *bool `yaml:"tray_show_state,omitempty"`
+
+	// TmuxShowState controls whether `ost status --format tmux` appends
+	// each platform's raw state text after its icon (e.g. "S Away"
+	// instead of just "S"). Defaults to false - tmux lines are more
+	// space-constrained than a floating window, so the icon-only look
+	// stays the default; this opts in to the fuller Windows-style output.
+	TmuxShowState *bool `yaml:"tmux_show_state,omitempty"`
+}
+
+// TrayLayoutOrDefault returns the configured tray window layout, or
+// "vertical" if unset.
+func (c *Config) TrayLayoutOrDefault() string {
+	if c != nil && c.Display != nil && c.Display.TrayLayout != "" {
+		return c.Display.TrayLayout
+	}
+	return "vertical"
+}
+
+// TrayShowStateOrDefault returns whether the Windows floating window
+// should show state text, defaulting to true (matches its original,
+// only, behavior before this became configurable).
+func (c *Config) TrayShowStateOrDefault() bool {
+	if c != nil && c.Display != nil && c.Display.TrayShowState != nil {
+		return *c.Display.TrayShowState
+	}
+	return true
+}
+
+// TmuxShowStateOrDefault returns whether `ost status --format tmux`
+// should append state text after each icon, defaulting to false (matches
+// its original, icon-only, behavior before this became configurable).
+func (c *Config) TmuxShowStateOrDefault() bool {
+	if c != nil && c.Display != nil && c.Display.TmuxShowState != nil {
+		return *c.Display.TmuxShowState
+	}
+	return false
+}
+
 // CacheConfig controls local caching of `ost status` results, used to
 // avoid redundant API calls when multiple callers (e.g., several tmux
 // panes/sessions each polling their status bar) query status at the same
@@ -125,6 +194,7 @@ type Config struct {
 	Discord *PlatformConfig `yaml:"discord"`
 	GitHub  *PlatformConfig `yaml:"github"`
 	Cache   *CacheConfig    `yaml:"cache"`
+	Display *DisplayConfig  `yaml:"display,omitempty"`
 }
 
 // configPathOverride, when set via SetConfigPath, takes precedence over
