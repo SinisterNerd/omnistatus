@@ -1,4 +1,4 @@
-.PHONY: build build-menubar release test clean help install lint fmt
+.PHONY: build build-menubar build-tray-windows release test clean help install lint fmt
 
 # Build the binary
 build:
@@ -61,6 +61,26 @@ build-menubar:
 run-menubar: build-menubar
 	"./$(MENUBAR_APP)/Contents/MacOS/ost-menubar"
 
+# Cross-compile the optional Windows system tray app (see cmd/traywindows)
+# for both architectures into dist/. Pure Go, no CGO - fyne.io/systray's
+# Windows backend uses only syscall/golang.org/x/sys/windows (confirmed by
+# reading its source before depending on it), so unlike the macOS menu bar
+# app this can be built from any host, including this one. It can only be
+# *run and tested* on actual Windows though - not part of `make release`
+# since it hasn't been verified working on real Windows yet; wire it into
+# the release workflow once that's confirmed.
+#
+# -ldflags="-H=windowsgui" marks this as a GUI-subsystem binary, so
+# launching it doesn't pop up a console window alongside the tray icon -
+# the Windows equivalent of the macOS app's LSUIElement Info.plist key.
+build-tray-windows:
+	@mkdir -p dist
+	@for arch in amd64 arm64; do \
+		echo "Building dist/omnistatus-tray-windows-$$arch.exe..."; \
+		CGO_ENABLED=0 GOOS=windows GOARCH=$$arch go build -ldflags="-H=windowsgui" -o dist/omnistatus-tray-windows-$$arch.exe ./cmd/traywindows || exit 1; \
+	done
+	@echo "Windows tray app binaries in dist/"
+
 # Install the binary to /usr/local/bin
 install: build
 	@echo "Installing omniStatus to /usr/local/bin..."
@@ -92,11 +112,12 @@ clean:
 # Display help
 help:
 	@echo "omniStatus - Makefile targets:"
-	@echo "  make build          - Build the ost binary"
-	@echo "  make build-menubar  - Build the optional OmniStatus.app menu bar app"
-	@echo "  make run-menubar    - Build and run the menu bar app in the foreground"
-	@echo "  make release        - Cross-compile ost for macOS/Linux/Windows into dist/"
-	@echo "  make install        - Build and install to /usr/local/bin"
+	@echo "  make build              - Build the ost binary"
+	@echo "  make build-menubar      - Build the optional OmniStatus.app menu bar app"
+	@echo "  make run-menubar        - Build and run the menu bar app in the foreground"
+	@echo "  make build-tray-windows - Cross-compile the optional Windows tray app into dist/"
+	@echo "  make release            - Cross-compile ost for macOS/Linux/Windows into dist/"
+	@echo "  make install            - Build and install to /usr/local/bin"
 	@echo "  make test     - Run tests"
 	@echo "  make fmt      - Format code"
 	@echo "  make lint     - Run linter"

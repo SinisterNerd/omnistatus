@@ -40,6 +40,12 @@ Note: only the CLI is cross-platform. The macOS menu bar app (`cmd/menubar`) dep
 
 An optional native menu bar front-end lives alongside the CLI in `cmd/menubar` — build it with `make build-menubar` (produces `OmniStatus.app`), or `make run-menubar` to build and launch it directly. It shows a live colored glyph per enabled platform (green/yellow/red, reflecting the same state logic as `ost status`) and lets you change state with a click, no terminal needed. See `docs/dev/HANDOFF.md` §5.5 for the full design/limitations (v1 has no free-text status dialog — use `ost set --status` for that — and no interactive Teams sign-in from the GUI, so run `ost set` once first if Teams needs auth).
 
+## Windows Tray App (Optional)
+
+The Windows equivalent lives in `cmd/traywindows` — build with `make build-tray-windows` (cross-compiles both amd64 and arm64, e.g. Surface devices with Snapdragon chips, into `dist/`). Same idea as the macOS app, click the tray icon for a menu of quick state changes, but the tray icon itself shows a single colored dot reflecting the *worst* status across your enabled platforms (Windows tray icons can't show inline colored text the way the macOS menu bar can) — hover for the full per-platform breakdown, or click for the same dropdown-with-quick-actions as the macOS app. Same v1 scope as the macOS app: state-only actions (no free-text status dialog), and no interactive Teams sign-in from the GUI.
+
+**This has not yet been run on real Windows** — it builds clean cross-compiled from macOS, but only actually launching it on Windows can confirm it works. See `docs/dev/HANDOFF.md` §10.3 for what to check first if you're testing it.
+
 ## Quick Start
 
 ### 1. Configure Platforms
@@ -344,7 +350,7 @@ GNU Affero General Public License v3.0 (AGPLv3) - see LICENSE file for details
 ## Roadmap
 
 - [x] Binary releases for macOS, Linux, Windows - see [GitHub Releases](https://github.com/SinisterNerd/omnistatus/releases)
-- [ ] **Windows status/tray app** - equivalent of the macOS menu bar app (`cmd/menubar`). Likely pure Go, no CGO needed - Windows' tray API (`Shell_NotifyIcon`) is a plain Win32 C API callable via `syscall`/`golang.org/x/sys/windows`, unlike Cocoa on macOS which requires CGO + Objective-C bridging. See `docs/dev/HANDOFF.md` §10 for the fuller technical writeup.
+- [x] **Windows status/tray app** (`cmd/traywindows`) - equivalent of the macOS menu bar app. Pure Go, no CGO (confirmed). Build with `make build-tray-windows`. **Not yet verified on real Windows** - builds clean cross-compiled from macOS, but untested at runtime; see `docs/dev/HANDOFF.md` §10.3 for details and what to check first.
 - [ ] **Web service / JSON API** - self-hosted HTTP layer over `platform`/`config` (same reuse pattern as the CLI and menu bar apps), enabling clients this project won't build natively itself: a browser-based PWA for iOS/Android ("Add to Home Screen", no App Store), home automation (Home Assistant, etc.), or anything else that can make an HTTP request. Planned as a **separate repo**, not part of this one - see `docs/dev/HANDOFF.md` §10 for why, plus the licensing/hosting considerations for a possible future paid tier.
 - [ ] Native iOS/iPadOS app (Swift/SwiftUI) and native Android app (Kotlin), consuming the web API above
 - [ ] Linux status/tray tool - **on hold pending demand**. The Linux desktop tray ecosystem is meaningfully more fragmented than Windows/macOS (no OS-level tray API, GNOME dropped native tray support entirely, DBus/StatusNotifierItem is the closest thing to a standard, some window managers have no tray concept at all). In the meantime, `ost status --format json` already gives Linux users with tiling WMs/custom bars a way to build their own display.
