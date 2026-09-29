@@ -89,8 +89,10 @@ const (
 
 	detailsWindowWidth   = 260 // vertical layout: fixed width, height grows with line count
 	detailsLineHeight    = 26
-	detailsCellWidth     = 130 // horizontal layout: fixed per-platform cell width, window width grows with line count
+	detailsCellWidth     = 130 // horizontal layout fallback only - see measureCellWidth for the real (content-measured) width
 	detailsRowHeight     = 36  // horizontal layout: fixed window height (one row)
+	detailsIconTextGap   = 6   // horizontal layout: gap between a cell's icon and its text
+	detailsCellGap       = 16  // horizontal layout: gap between adjacent cells
 	detailsPadding       = 10
 	detailsScreenMarginX = 12
 	detailsScreenMarginY = 60 // rough clearance above the taskbar - not taskbar-aware, see note below
@@ -117,14 +119,17 @@ var (
 	pGetSystemMetrics = u32.NewProc("GetSystemMetrics")
 	pSetWindowPos     = u32.NewProc("SetWindowPos")
 	pLoadCursor       = u32.NewProc("LoadCursorW")
+	pGetDC            = u32.NewProc("GetDC")
+	pReleaseDC        = u32.NewProc("ReleaseDC")
 	pGetModuleHandle  = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetModuleHandleW")
 
-	pCreateSolidBrush = g32.NewProc("CreateSolidBrush")
-	pCreateFontW      = g32.NewProc("CreateFontW")
-	pSelectObject     = g32.NewProc("SelectObject")
-	pDeleteObject     = g32.NewProc("DeleteObject")
-	pSetTextColor     = g32.NewProc("SetTextColor")
-	pSetBkMode        = g32.NewProc("SetBkMode")
+	pCreateSolidBrush      = g32.NewProc("CreateSolidBrush")
+	pCreateFontW           = g32.NewProc("CreateFontW")
+	pSelectObject          = g32.NewProc("SelectObject")
+	pDeleteObject          = g32.NewProc("DeleteObject")
+	pGetTextExtentPoint32W = g32.NewProc("GetTextExtentPoint32W")
+	pSetTextColor          = g32.NewProc("SetTextColor")
+	pSetBkMode             = g32.NewProc("SetBkMode")
 )
 
 // wndClassEx mirrors the Win32 WNDCLASSEXW struct layout exactly (field
@@ -159,6 +164,12 @@ type msg struct {
 	LParam  uintptr
 	Time    uint32
 	Pt      struct{ X, Y int32 }
+}
+
+// sizeXY mirrors the Win32 SIZE struct, used to receive the result of
+// GetTextExtentPoint32W.
+type sizeXY struct {
+	CX, CY int32
 }
 
 // detailsLine is one row of the floating window: a colored icon character
@@ -360,12 +371,32 @@ func detailsWndProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 // lives in exactly one place.
 func resizeDetailsWindow(hwnd windows.Handle) {
 	detailsMu.Lock()
-	n := len(detailsLines)
+	lines := append([]detailsLine(nil), detailsLines...)
 	detailsMu.Unlock()
+	n := len(lines)
 	if n == 0 {
 		n = 1
 	}
-	_, _, w, h := detailsWindowRect(n)
+
+	var w, h int32
+	if currentLayout() == "horizontal" && len(lines) > 0 {
+		// Horizontal cells are sized to their actual content (see
+		// measureCellWidth), not a fixed guess - needs a DC to measure
+		// text with, same as painting does, just outside a paint cycle.
+		hdc, _, _ := pGetDC.Call(uintptr(hwnd))
+		w = detailsPadding * 2
+		for i, line := range lines {
+			if i > 0 {
+				w += detailsCellGap
+			}
+			w += measureCellWidth(hdc, line)
+		}
+		h = detailsRowHeight
+		pReleaseDC.Call(uintptr(hwnd), hdc)
+	} else {
+		_, _, rw, rh := detailsWindowRect(n)
+		w, h = rw, rh
+	}
 
 	// SWP_NOMOVE: resize only, leave the window wherever it currently is.
 	// Without this, a user drag (now possible via WM_NCHITTEST above)
@@ -399,26 +430,38 @@ func paintDetailsWindow(hwnd windows.Handle) {
 
 	textFont := getOrCreateFont("", 15)
 	horizontal := currentLayout() == "horizontal"
+	cellLeft := int32(detailsPadding) // horizontal layout only - advances per cell below
 
 	for i, line := range lines {
-		var lineRect rect
+		iconFont := getOrCreateFont(line.IconFont, 15)
+		iconWidth := measureText(hdc, iconFont, line.Icon)
+
+		var iconRect, textRect rect
 		if horizontal {
-			left := int32(detailsPadding + i*detailsCellWidth)
-			lineRect = rect{Left: left, Top: 0, Right: left + detailsCellWidth, Bottom: detailsRowHeight}
+			// Content-fit: the icon column is exactly as wide as the
+			// measured glyph, text starts right after it (plus a small
+			// gap), and the next cell starts after this one's total
+			// measured width - kept in sync with resizeDetailsWindow's
+			// measureCellWidth, which sized the window to match.
+			cellWidth := measureCellWidth(hdc, line)
+			iconRect = rect{Left: cellLeft, Top: 0, Right: cellLeft + iconWidth, Bottom: detailsRowHeight}
+			textRect = rect{Left: cellLeft + iconWidth + detailsIconTextGap, Top: 0, Right: cellLeft + cellWidth, Bottom: detailsRowHeight}
+			cellLeft += cellWidth + detailsCellGap
 		} else {
 			top := int32(detailsPadding + i*detailsLineHeight)
-			lineRect = rect{
+			lineRect := rect{
 				Left:   detailsPadding,
 				Top:    top,
 				Right:  detailsWindowWidth - detailsPadding,
 				Bottom: top + detailsLineHeight,
 			}
+			iconRect = lineRect
+			iconRect.Right = iconRect.Left + 24
+			textRect = lineRect
+			textRect.Left += 28
 		}
 
 		// Icon glyph, in its own font/color if configured.
-		iconFont := getOrCreateFont(line.IconFont, 15)
-		iconRect := lineRect
-		iconRect.Right = iconRect.Left + 24
 		prev, _, _ := pSelectObject.Call(hdc, uintptr(iconFont))
 		pSetTextColor.Call(hdc, uintptr(colorRef(line.IconColor)))
 		iconPtr, _ := windows.UTF16PtrFromString(line.Icon)
@@ -426,13 +469,57 @@ func paintDetailsWindow(hwnd windows.Handle) {
 		pSelectObject.Call(hdc, prev)
 
 		// Status text, plain light gray, to the right of the icon.
-		textRect := lineRect
-		textRect.Left += 28
 		pSelectObject.Call(hdc, uintptr(textFont))
 		pSetTextColor.Call(hdc, uintptr(colorRef(color.RGBA{R: 220, G: 220, B: 220, A: 255})))
 		textPtr, _ := windows.UTF16PtrFromString(line.Text)
 		pDrawText.Call(hdc, uintptr(unsafe.Pointer(textPtr)), ^uintptr(0), uintptr(unsafe.Pointer(&textRect)), dtSingleLine|dtVCenter|dtLeft)
 	}
+}
+
+// measureText returns the rendered width, in pixels, of text drawn with
+// font on the given device context - used to size horizontal-layout cells
+// to their actual content instead of a fixed guess. Temporarily selects
+// font into hdc and restores whatever was selected before, so it's safe
+// to call in the middle of painting without disturbing anything else.
+//
+// Deliberately measures the UTF-16-encoded length, not len([]rune(text)):
+// Nerd Font private-use-area glyphs (like the ones this project's own
+// config uses) commonly sit above U+FFFF, which UTF-16 represents as a
+// 2-unit surrogate pair - using the rune count would undercount those and
+// throw the measurement off by one code unit per such glyph.
+func measureText(hdc uintptr, font windows.Handle, text string) int32 {
+	if text == "" {
+		return 0
+	}
+
+	prev, _, _ := pSelectObject.Call(hdc, uintptr(font))
+	defer pSelectObject.Call(hdc, prev)
+
+	utf16Text, err := windows.UTF16FromString(text)
+	if err != nil || len(utf16Text) < 2 {
+		return 0
+	}
+	count := len(utf16Text) - 1 // UTF16FromString includes a trailing NUL; exclude it
+
+	var sz sizeXY
+	pGetTextExtentPoint32W.Call(hdc, uintptr(unsafe.Pointer(&utf16Text[0])), uintptr(count), uintptr(unsafe.Pointer(&sz)))
+	return sz.CX
+}
+
+// measureCellWidth returns how wide one horizontal-layout cell needs to be
+// to fit line's icon and text (each in their own font) with the gap
+// between them, but no text at all if line.Text is empty (e.g.
+// display.tray_show_state: false with a custom icon set - see main.go's
+// refresh()).
+func measureCellWidth(hdc uintptr, line detailsLine) int32 {
+	iconFont := getOrCreateFont(line.IconFont, 15)
+	textFont := getOrCreateFont("", 15)
+
+	w := measureText(hdc, iconFont, line.Icon)
+	if textW := measureText(hdc, textFont, line.Text); textW > 0 {
+		w += detailsIconTextGap + textW
+	}
+	return w
 }
 
 // getOrCreateFont returns a cached font handle for the given family
