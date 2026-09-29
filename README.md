@@ -110,7 +110,7 @@ Not every platform supports both concepts omniStatus deals with:
 | Platform | `--state` supported | `--status`/`--emoji` supported | `--duration` supported |
 |----------|:---:|:---:|:---:|
 | Slack | Yes (collapses to active/away - see [Slack section](#slack)) | Yes | No |
-| Microsoft Teams | Yes (6 states) | No - not exposed by Microsoft Graph API | Yes (`expirationDuration`) |
+| Microsoft Teams | Yes (6 states) | Yes (text only, no emoji field) | Availability only - not the status message (see [Microsoft Teams section](#microsoft-teams)) |
 | Discord | Yes *(paused, see note below)* | Yes *(paused, see note below)* | No |
 | GitHub | No - GitHub has no availability concept, `--state` only toggles the "Busy" flag | Yes - this is the *only* signal GitHub has, so omitting `--status`/`--emoji` means nothing will change | Yes (`expiresAt`) |
 
@@ -239,6 +239,8 @@ Uses delegated OAuth 2.0 via the device code flow - no client secret, no local r
 3. **API permissions** → Add a permission → Microsoft Graph → **Delegated permissions** (not Application) → add `Presence.ReadWrite` and `User.Read` → Grant admin consent
 4. Add `client_id` and `tenant_id` (both from the app registration's Overview page) to your config file under `teams.extra`
 5. Run any `ost set` command - since `token`/`refresh_token` are missing, omniStatus automatically starts a one-time device-code sign-in: it prints a URL and a short code, you complete sign-in on any device with a browser, and the tokens are saved back to your config file automatically from then on (including silent refresh - access tokens expire ~1hr, the refresh token handles renewal transparently)
+
+**`--status` support:** `ost set --status "..."` sets a real custom status message on Teams via Microsoft Graph's `presence/setStatusMessage` action - no extra setup or permissions needed beyond the `Presence.ReadWrite` scope above. Two caveats: there's no separate emoji field (plain text only, so `--emoji` is a no-op for Teams), and `--duration` doesn't apply to the status message specifically - Graph accepts but silently ignores the expiration on this endpoint, so it only auto-clears availability, not the status text (`ost clear` clears both immediately, unlike waiting out a duration).
 
 ### Discord *(paused - see [Platform Capabilities](#platform-capabilities))*
 
