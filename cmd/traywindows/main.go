@@ -100,7 +100,12 @@ var (
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("omnistatus-tray: %v", err)
+		// log.Fatalf alone would be silent here: this binary is built
+		// with -H=windowsgui (no console), so a plain log write to
+		// stderr goes nowhere visible - confirmed live, this is exactly
+		// what happened the first time this ran on real Windows with no
+		// config file present yet. fatalError shows a real dialog first.
+		fatalError("omniStatus", err.Error())
 	}
 	appConfig = cfg
 	appEntries = buildEntries(cfg)

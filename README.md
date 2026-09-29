@@ -44,7 +44,7 @@ An optional native menu bar front-end lives alongside the CLI in `cmd/menubar` �
 
 The Windows equivalent lives in `cmd/traywindows` — build with `make build-tray-windows` (cross-compiles both amd64 and arm64, e.g. Surface devices with Snapdragon chips, into `dist/`). Same idea as the macOS app, click the tray icon for a menu of quick state changes, but the tray icon itself shows a single colored dot reflecting the *worst* status across your enabled platforms (Windows tray icons can't show inline colored text the way the macOS menu bar can) — hover for the full per-platform breakdown, or click for the same dropdown-with-quick-actions as the macOS app. Same v1 scope as the macOS app: state-only actions (no free-text status dialog), and no interactive Teams sign-in from the GUI.
 
-**This has not yet been run on real Windows** — it builds clean cross-compiled from macOS, but only actually launching it on Windows can confirm it works. See `docs/dev/HANDOFF.md` §10.3 for what to check first if you're testing it.
+**Not yet fully verified on real Windows** — the first real run (on a Windows-on-ARM VM) surfaced and fixed a real bug (a missing config file caused a completely silent failure with no error shown; fixed by adding a proper Windows error dialog for startup failures), but the app itself (icon, menu, clicking a state) still hasn't been confirmed working end to end. See `docs/dev/HANDOFF.md` §5.8 for details and what to check next.
 
 ## Quick Start
 
