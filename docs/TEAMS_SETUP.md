@@ -86,6 +86,13 @@ real limitations, confirmed against the live API:
 
 ## Troubleshooting
 
+**`teams authentication failed: sign-in failed: AADSTS7000218: The request
+body must contain the following parameter: 'client_assertion' or
+'client_secret'`.** This is an admin-side app registration setting, not
+something you can fix in your own config - "Allow public client flows"
+needs to be turned on for the app. Point your admin at
+[TEAMS_ADMIN_SETUP.md](TEAMS_ADMIN_SETUP.md)'s troubleshooting section.
+
 **`graph API returned status 401: Unauthorized`.** Your access token
 expired and the automatic refresh also failed - usually means the refresh
 token was revoked (e.g. a password reset, or an admin revoking your

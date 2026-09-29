@@ -241,7 +241,7 @@ Every `tmux:` block is optional and every field within it is optional - anything
 Uses delegated OAuth 2.0 via the device code flow - no client secret, no local redirect server, works fine over SSH.
 
 1. Register an app in [Azure Portal](https://portal.azure.com)
-2. **Authentication** → Add a platform → **Mobile and desktop applications** (this makes it a public client - no client secret needed or accepted)
+2. **Authentication** → Add a platform → **Mobile and desktop applications**, then under **Advanced settings** on the same page set **Allow public client flows** to **Yes** and save - this second step is easy to miss and is what actually makes it a public client (no secret needed/accepted). Skipping it causes sign-in to fail partway through with `AADSTS7000218: ... must contain ... 'client_assertion' or 'client_secret'`.
 3. **API permissions** → Add a permission → Microsoft Graph → **Delegated permissions** (not Application) → add `Presence.ReadWrite` and `User.Read` → Grant admin consent
 4. Add `client_id` and `tenant_id` (both from the app registration's Overview page) to your config file under `teams.extra`
 5. Run any `ost set` command - since `token`/`refresh_token` are missing, omniStatus automatically starts a one-time device-code sign-in: it prints a URL and a short code, you complete sign-in on any device with a browser, and the tokens are saved back to your config file automatically from then on (including silent refresh - access tokens expire ~1hr, the refresh token handles renewal transparently)

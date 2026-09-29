@@ -25,10 +25,17 @@ right permissions.
      only" is fine unless you specifically need multi-tenant
    - Redirect URI: leave blank - the device code flow doesn't use one
 2. **Authentication** → **Add a platform** → **Mobile and desktop
-   applications**. This is what makes the app a "public client" - no client
-   secret is needed or accepted for the device code flow. (Adding this
-   platform type is what enables public client flows in the portal UI; you
-   don't need to fill in a redirect URI on this screen either.)
+   applications** (you don't need to fill in a redirect URI on this screen).
+   Then, on the same Authentication page, scroll to **Advanced settings**
+   and explicitly set **Allow public client flows** to **Yes**, and **Save**.
+   This second step is easy to miss and is the one that actually matters -
+   adding the platform type alone does not reliably flip it. If it's left
+   on "No", sign-in fails partway through with
+   `AADSTS7000218: The request body must contain the following parameter:
+   'client_assertion' or 'client_secret'` (confirmed live) - the device
+   code is issued fine, but the token exchange at the end gets rejected
+   because Azure still thinks this is a confidential client that needs a
+   secret.
 3. **API permissions** → **+ Add a permission** → **Microsoft Graph** →
    **Delegated permissions** (not "Application permissions" - the app-only
    flow doesn't work reliably with Graph's presence endpoints).
@@ -53,6 +60,11 @@ user's access/refresh token pair is obtained directly between their device
 and Microsoft, then stored only in their own local omniStatus config.
 
 ## Troubleshooting
+
+**`AADSTS7000218: ... must contain ... 'client_assertion' or
+'client_secret'`.** "Allow public client flows" is set to "No" on the app
+registration - go to **Authentication → Advanced settings** and set it to
+**Yes** (see step 2 above). This is the single most common setup mistake.
 
 **A user reports "needs admin approval" during sign-in.** Admin consent
 (step 4) wasn't granted, or was granted after they already hit the prompt.

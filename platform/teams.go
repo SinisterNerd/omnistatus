@@ -356,6 +356,17 @@ func (t *TeamsUpdater) refreshAccessToken(ctx context.Context) error {
 // Unlike the Authorization Code flow, this doesn't require a local
 // redirect/callback server, so it works fine over SSH - the user can
 // complete sign-in from any browser on any device.
+//
+// Designed for a "public client" app registration (no client_secret
+// needed - see docs/TEAMS_ADMIN_SETUP.md's "Allow public client flows"
+// step). If that's not set on the app registration, or a tenant policy
+// forces confidential-client behavior, Azure AD rejects the token
+// exchange with AADSTS7000218 ("must contain client_assertion or
+// client_secret") even though the device-code request itself succeeds -
+// confirmed live. clientSecret, if configured, is sent on the poll
+// request as a fallback for that case (matches refreshAccessToken's
+// existing behavior), but the real fix is almost always the Azure-side
+// toggle, not adding a secret.
 func (t *TeamsUpdater) AuthenticateInteractive(ctx context.Context) error {
 	if t.clientID == "" || t.tenantID == "" {
 		return fmt.Errorf("client_id and tenant_id must be set in config before authenticating")
@@ -430,6 +441,9 @@ func (t *TeamsUpdater) AuthenticateInteractive(ctx context.Context) error {
 		pollForm.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
 		pollForm.Set("client_id", t.clientID)
 		pollForm.Set("device_code", dc.DeviceCode)
+		if t.clientSecret != "" {
+			pollForm.Set("client_secret", t.clientSecret)
+		}
 
 		tokenResp, pollErr := t.postForToken(ctx, tokenURL, pollForm)
 		if pollErr == nil {
