@@ -64,9 +64,10 @@ const refreshInterval = 15 * time.Second
 // platform doesn't support reading back current state - only affects
 // display, writes still work). Same shape as cmd/menubar's.
 type platformEntry struct {
-	name    string
-	updater platform.PresenceUpdater
-	reader  platform.PresenceReader
+	name     string
+	updater  platform.PresenceUpdater
+	reader   platform.PresenceReader
+	cfgBlock *config.PlatformConfig
 }
 
 // platformMenuUI holds the live systray.MenuItem for one platform's
@@ -120,6 +121,7 @@ func main() {
 
 func onReady() {
 	systray.SetTooltip("omniStatus")
+	go startDetailsWindow()
 	buildMenu()
 	refresh()
 	go pollLoop()
@@ -137,6 +139,11 @@ func buildEntries(cfg *config.Config) []platformEntry {
 		platform.NewTeamsUpdater(cfg.Teams),
 		platform.NewGitHubUpdater(cfg.GitHub),
 	}
+	cfgBlocks := map[string]*config.PlatformConfig{
+		"slack":  cfg.Slack,
+		"teams":  cfg.Teams,
+		"github": cfg.GitHub,
+	}
 
 	var entries []platformEntry
 	for _, u := range all {
@@ -145,9 +152,10 @@ func buildEntries(cfg *config.Config) []platformEntry {
 		}
 		reader, _ := u.(platform.PresenceReader)
 		entries = append(entries, platformEntry{
-			name:    u.Name(),
-			updater: u,
-			reader:  reader,
+			name:     u.Name(),
+			updater:  u,
+			reader:   reader,
+			cfgBlock: cfgBlocks[u.Name()],
 		})
 	}
 	return entries
@@ -200,6 +208,14 @@ func displayName(platformName string) string {
 // systray's items are persistent objects - refresh() mutates their titles
 // later rather than recreating them.
 func buildMenu() {
+	detailsItem := systray.AddMenuItem("Show Status Window", "")
+	go func() {
+		for range detailsItem.ClickedCh {
+			ToggleDetailsWindow()
+		}
+	}()
+	systray.AddSeparator()
+
 	for _, e := range appEntries {
 		topItem := systray.AddMenuItem(displayName(e.name), "")
 		appUIs = append(appUIs, platformMenuUI{name: e.name, topItem: topItem})
@@ -285,6 +301,7 @@ func refresh() {
 	severity := map[string]int{"green": 0, "yellow": 1, "red": 2}
 	worst := ""
 	var tooltipLines []string
+	var winLines []detailsLine
 	anySuccess := false
 
 	for i, e := range appEntries {
@@ -295,6 +312,10 @@ func refresh() {
 		if err != nil {
 			appUIs[i].topItem.SetTitle(displayName(e.name) + ": error")
 			tooltipLines = append(tooltipLines, displayName(e.name)+": error")
+			winLines = append(winLines, detailsLine{
+				Icon: strings.ToUpper(e.name[:1]), IconColor: errorColor,
+				Text: displayName(e.name) + ": error",
+			})
 			continue
 		}
 
@@ -306,6 +327,17 @@ func refresh() {
 		if worst == "" || severity[bucket] > severity[worst] {
 			worst = bucket
 		}
+
+		// The floating window does its own native text rendering (unlike
+		// the tray icon, which is a fixed bitmap), so - unlike the macOS
+		// app - it can honor the configured icon/color/font here: see
+		// config.TmuxDisplayConfig's Font field.
+		icon := e.cfgBlock.Icon(strings.ToUpper(e.name[:1]))
+		iconColor := parseColor(e.cfgBlock.ColorFor(bucket), bucketColor[bucket])
+		winLines = append(winLines, detailsLine{
+			Icon: icon, IconColor: iconColor, IconFont: e.cfgBlock.Font(""),
+			Text: fmt.Sprintf("%s: %s", displayName(e.name), info.Availability),
+		})
 	}
 
 	if cacheEnabled && cacheDirty {
@@ -317,6 +349,7 @@ func refresh() {
 		tooltip = "omniStatus\n" + strings.Join(tooltipLines, "\n")
 	}
 	systray.SetTooltip(tooltip)
+	SetDetailsLines(winLines)
 
 	dotColor := errorColor
 	if anySuccess {

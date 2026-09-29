@@ -33,19 +33,36 @@ type PlatformConfig struct {
 }
 
 // TmuxDisplayConfig controls how a single platform is rendered by
-// `ost status --format tmux`: the glyph/character shown for that platform,
-// and the color used for each of the three availability buckets
+// `ost status --format tmux` and, on Windows, the tray app's floating
+// status window (`cmd/traywindows`). The glyph/character shown for that
+// platform, the font it's drawn in (native rendering only - see Font
+// below), and the color used for each of the three availability buckets
 // (green/yellow/red). Any field left blank falls back to a sane default,
 // so this whole block - and every field in it - is optional.
 //
 // Colors accept anything tmux's `#[fg=...]` understands: a color name
 // ("green", "brightred"), a tmux 256-color index ("colour208"), or (on
-// tmux 2.9+ with a truecolor terminal) a hex value ("#ff8800").
+// tmux 2.9+ with a truecolor terminal) a hex value ("#ff8800"). The
+// Windows tray app's native renderer understands hex and a handful of
+// common color names, but not tmux's 256-color palette indices - an
+// unrecognized value there just falls back to the plain default color for
+// that bucket.
 type TmuxDisplayConfig struct {
 	Icon        string `yaml:"icon,omitempty"`         // e.g. "" (Nerd Font glyph), "S", "●"
 	ColorGreen  string `yaml:"color_green,omitempty"`  // used when availability maps to "available"
 	ColorYellow string `yaml:"color_yellow,omitempty"` // used when availability maps to "away/transitional"
 	ColorRed    string `yaml:"color_red,omitempty"`    // used when availability maps to "busy/dnd/offline"
+
+	// Font is the font family name to draw Icon with. Ignored by tmux
+	// (which always uses the terminal's own font) - only meaningful for
+	// the Windows tray app's floating status window, which does its own
+	// native text rendering and can point at any font actually installed
+	// on that machine, e.g. a Nerd Font, so the real configured glyph can
+	// render there too (not just a plain-letter fallback). Must be
+	// installed on the Windows machine to have any effect; if empty, or
+	// the named font isn't found, falls back to the system UI font, which
+	// almost never has the Nerd Font glyph codepoints.
+	Font string `yaml:"font,omitempty"`
 }
 
 // Icon returns the configured tmux icon for this platform, or fallback if
@@ -54,6 +71,16 @@ type TmuxDisplayConfig struct {
 func (p *PlatformConfig) Icon(fallback string) string {
 	if p != nil && p.Tmux != nil && p.Tmux.Icon != "" {
 		return p.Tmux.Icon
+	}
+	return fallback
+}
+
+// Font returns the configured font family name for this platform's icon
+// (Windows tray app only - see TmuxDisplayConfig.Font), or fallback if
+// none is set.
+func (p *PlatformConfig) Font(fallback string) string {
+	if p != nil && p.Tmux != nil && p.Tmux.Font != "" {
+		return p.Tmux.Font
 	}
 	return fallback
 }

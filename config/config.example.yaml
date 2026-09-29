@@ -93,19 +93,25 @@ github:
   # Supports --duration (maps to GitHub's expiresAt field) - GitHub will
   # automatically clear the status once it expires, same as Teams.
   #
-  # Optional: how this platform renders in `ost status --format tmux`,
-  # which prints one colored glyph per enabled/readable platform on a
-  # single line (great for tmux's `set -g status-right`). "icon" can be
-  # any string - a letter, a word, or a Nerd Font glyph if your terminal
-  # font has one (e.g. the user's font has dedicated Teams/Slack/GitHub
-  # icons). Colors accept anything tmux's `#[fg=...]` understands: a color
-  # name, a 256-color index ("colour208"), or (tmux 2.9+ with a truecolor
-  # terminal) a hex value ("#ff8800"). Any field left out uses the default.
+  # Optional: how this platform renders in `ost status --format tmux` and,
+  # on Windows, the tray app's floating status window (cmd/traywindows).
+  # "icon" can be any string - a letter, a word, or a Nerd Font glyph if
+  # your terminal font has one (e.g. the user's font has dedicated
+  # Teams/Slack/GitHub icons). Colors accept anything tmux's `#[fg=...]`
+  # understands: a color name, a 256-color index ("colour208"), or (tmux
+  # 2.9+ with a truecolor terminal) a hex value ("#ff8800") - the Windows
+  # tray app's native renderer understands hex and common color names, but
+  # not 256-color indices (falls back to the plain default for that
+  # bucket). "font" is Windows-tray-only: a font family name installed on
+  # that machine to draw "icon" with, e.g. a Nerd Font, so the real glyph
+  # can render natively there too - tmux ignores this (it always uses the
+  # terminal's own font). Any field left out uses the default.
   tmux:
     icon: "GH"
     color_green: "green"
     color_yellow: "yellow"
     color_red: "colour196"
+    # font: "JetBrainsMono Nerd Font"
 
 # Status Cache Configuration (optional)
 # Caches `ost status` results locally for a short TTL, to avoid redundant
