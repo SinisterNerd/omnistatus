@@ -28,35 +28,26 @@ slack:
   #   icon: ""
 
 # Microsoft Teams Configuration
-# Uses delegated OAuth 2.0 (Authorization Code flow), NOT app-only/client
-# credentials. This is required because Microsoft Graph's presence-setting
-# endpoints (setUserPreferredPresence) only work with delegated auth.
+# Uses delegated OAuth 2.0 via the device code flow, NOT app-only/client
+# credentials - required because Graph's presence-setting endpoints only
+# work with delegated auth. No client secret, no redirect/callback server.
 #
-# Only availability (Available/Away/DoNotDisturb) can be set - Microsoft
-# Graph API does not support setting a custom status message.
+# Sets both availability (Available/Away/DoNotDisturb/Busy/BeRightBack/
+# Offline) and a custom status message (via setStatusMessage).
 teams:
   enabled: true
-  token: "YOUR_ACCESS_TOKEN_HERE"          # short-lived (~1hr), auto-refreshed
+  # token/refresh_token: leave unset. The first time you run any `ost`
+  # command, omniStatus detects they're missing and automatically starts a
+  # one-time device-code sign-in (prints a URL + short code) - your
+  # access/refresh tokens get saved back here automatically afterward, then
+  # silently auto-refresh from then on.
   extra:
-    refresh_token: "YOUR_REFRESH_TOKEN_HERE"  # long-lived, used to auto-renew
-    client_id: "YOUR_AZURE_APP_CLIENT_ID_HERE"
-    tenant_id: "YOUR_AZURE_TENANT_ID_HERE"
-    # client_secret is usually NOT needed if your app is registered as a
-    # "Mobile and desktop application" (public client) in Azure. Only set
-    # this if your app is a confidential/Web client.
-    # client_secret: "YOUR_CLIENT_SECRET_HERE"
-  # Teams setup requires Azure AD application registration with DELEGATED
-  # permissions (not Application permissions):
-  # 1. Register an app in Azure Portal (https://portal.azure.com)
-  # 2. Authentication -> Add platform -> Mobile and desktop applications
-  #    -> add redirect URI: http://localhost:8765/callback
-  # 3. API permissions -> Add a permission -> Microsoft Graph ->
-  #    Delegated permissions -> add Presence.ReadWrite, User.Read
-  #    -> Grant admin consent
-  # 4. Run the one-time browser sign-in flow to get your initial
-  #    access_token + refresh_token (see TEAMS_SETUP.md)
-  # 5. omniStatus automatically refreshes the access_token using the
-  #    refresh_token and saves the new tokens back to this file
+    client_id: "YOUR_AZURE_APP_CLIENT_ID_HERE"   # same for everyone in your org - ask your admin
+    tenant_id: "YOUR_AZURE_TENANT_ID_HERE"       # same for everyone in your org - ask your admin
+  # client_id/tenant_id come from a one-time, tenant-wide Azure app
+  # registration someone in your organization needs to do - see
+  # docs/TEAMS_ADMIN_SETUP.md if that hasn't been done yet, or
+  # docs/TEAMS_SETUP.md for the rest of this per-user setup.
 
 # Discord Configuration
 # STATUS: PAUSED / EXPERIMENTAL. The implementation is protocol-correct

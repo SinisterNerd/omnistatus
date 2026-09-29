@@ -246,6 +246,8 @@ Uses delegated OAuth 2.0 via the device code flow - no client secret, no local r
 4. Add `client_id` and `tenant_id` (both from the app registration's Overview page) to your config file under `teams.extra`
 5. Run any `ost set` command - since `token`/`refresh_token` are missing, omniStatus automatically starts a one-time device-code sign-in: it prints a URL and a short code, you complete sign-in on any device with a browser, and the tokens are saved back to your config file automatically from then on (including silent refresh - access tokens expire ~1hr, the refresh token handles renewal transparently)
 
+Full walkthroughs: [docs/TEAMS_ADMIN_SETUP.md](docs/TEAMS_ADMIN_SETUP.md) (steps 1-3 above, admin-side) and [docs/TEAMS_SETUP.md](docs/TEAMS_SETUP.md) (steps 4-5, per-user).
+
 **`--status` support:** `ost set --status "..."` sets a real custom status message on Teams via Microsoft Graph's `presence/setStatusMessage` action - no extra setup or permissions needed beyond the `Presence.ReadWrite` scope above. Two caveats: there's no separate emoji field (plain text only, so `--emoji` is a no-op for Teams), and `--duration` doesn't apply to the status message specifically - Graph accepts but silently ignores the expiration on this endpoint, so it only auto-clears availability, not the status text (`ost clear` clears both immediately, unlike waiting out a duration).
 
 ### Discord *(paused - see [Platform Capabilities](#platform-capabilities))*
