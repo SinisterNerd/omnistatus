@@ -59,12 +59,16 @@ import (
 )
 
 const (
-	wmDestroy     = 0x0002
-	wmPaint       = 0x000F
-	wmLButtonDown = 0x0201
-	wmApp         = 0x8000
-	wmToggle      = wmApp + 1 // custom: toggle show/hide
-	wmSetLines    = wmApp + 2 // custom: new data is available, repaint
+	wmDestroy   = 0x0002
+	wmPaint     = 0x000F
+	wmNCHitTest = 0x0084
+	wmApp       = 0x8000
+	wmToggle    = wmApp + 1 // custom: toggle show/hide
+	wmSetLines  = wmApp + 2 // custom: new data is available, repaint
+
+	htCaption = 2 // returned from WM_NCHITTEST to make the whole window draggable, see wndProc
+
+	idcArrow = 32512 // standard arrow cursor, as a MAKEINTRESOURCE ordinal
 
 	wsPopup = 0x80000000
 
@@ -110,6 +114,7 @@ var (
 	pDrawText         = u32.NewProc("DrawTextW")
 	pGetSystemMetrics = u32.NewProc("GetSystemMetrics")
 	pSetWindowPos     = u32.NewProc("SetWindowPos")
+	pLoadCursor       = u32.NewProc("LoadCursorW")
 	pGetModuleHandle  = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetModuleHandleW")
 
 	pCreateSolidBrush = g32.NewProc("CreateSolidBrush")
@@ -191,11 +196,19 @@ func startDetailsWindow() {
 
 	bgBrush, _, _ := pCreateSolidBrush.Call(uintptr(colorRef(color.RGBA{R: 24, G: 24, B: 24, A: 255})))
 
+	// A window class with no cursor set leaves Windows showing whatever
+	// cursor was last active over it - observed live as the spinning
+	// "busy" wait cursor, giving a false impression of instability. Fix:
+	// explicitly load and set the standard arrow, same as systray's own
+	// window class does for its own (invisible) message window.
+	cursor, _, _ := pLoadCursor.Call(0, uintptr(idcArrow))
+
 	wc := wndClassEx{
 		Size:       uint32(unsafe.Sizeof(wndClassEx{})),
 		Style:      csHRedraw | csVRedraw,
 		WndProc:    windows.NewCallback(detailsWndProc),
 		Instance:   windows.Handle(instance),
+		Cursor:     windows.Handle(cursor),
 		Background: windows.Handle(bgBrush),
 		ClassName:  className,
 	}
@@ -231,9 +244,12 @@ func startDetailsWindow() {
 	}
 }
 
-// detailsWindowRect computes where the window should sit (bottom-right of
-// the primary display, roughly clear of the taskbar) and how tall it
-// should be for the given number of lines. Not taskbar-aware (doesn't
+// detailsWindowRect computes the window's default initial position
+// (bottom-right of the primary display, roughly clear of the taskbar) and
+// its size for the given number of lines. The x/y it returns are only
+// used once, at window creation - resizeDetailsWindow deliberately
+// ignores them afterward (SWP_NOMOVE) so a user drag sticks instead of
+// snapping back on the next data refresh. Not taskbar-aware (doesn't
 // query the actual taskbar rect via the Shell API) - detailsScreenMarginY
 // is a fixed approximation, good enough for the default bottom taskbar
 // case but may sit under/over a taskbar docked elsewhere or resized.
@@ -287,11 +303,15 @@ func detailsWndProc(hwnd windows.Handle, message uint32, wParam, lParam uintptr)
 		pInvalidateRect.Call(uintptr(hwnd), 0, 1)
 		return 0
 
-	case wmLButtonDown:
-		// Click-to-dismiss, same as the menu item that opened it -
-		// there's no title bar/close button to click instead.
-		pShowWindow.Call(uintptr(hwnd), swHide)
-		return 0
+	case wmNCHitTest:
+		// Makes the entire window draggable like a title bar, without
+		// manually tracking mouse deltas: returning HTCAPTION here tells
+		// Windows "treat any click-drag on this window as if the user
+		// grabbed the title bar," which gets native OS window-dragging
+		// for free. There's no title bar/close button, so this replaces
+		// the click-to-dismiss behavior an earlier version of this file
+		// had - dismiss is menu-item-only now, see wmToggle.
+		return htCaption
 
 	case wmPaint:
 		paintDetailsWindow(hwnd)
@@ -316,9 +336,15 @@ func resizeDetailsWindow(hwnd windows.Handle) {
 	if n == 0 {
 		n = 1
 	}
-	x, y, w, h := detailsWindowRect(n)
+	_, _, w, h := detailsWindowRect(n)
+
+	// SWP_NOMOVE: resize only, leave the window wherever it currently is.
+	// Without this, a user drag (now possible via WM_NCHITTEST above)
+	// would get silently undone back to the bottom-right corner the next
+	// time refresh() runs (every 15s, or after any click) and calls this.
 	const swpNoZOrder = 0x0004
-	pSetWindowPos.Call(uintptr(hwnd), 0, uintptr(x), uintptr(y), uintptr(w), uintptr(h), swpNoZOrder)
+	const swpNoMove = 0x0002
+	pSetWindowPos.Call(uintptr(hwnd), 0, 0, 0, uintptr(w), uintptr(h), swpNoZOrder|swpNoMove)
 }
 
 func paintDetailsWindow(hwnd windows.Handle) {
