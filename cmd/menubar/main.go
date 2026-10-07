@@ -57,6 +57,7 @@ const refreshInterval = 15 * time.Second
 // menuet.Color, not tmux's #[fg=...] strings) carries the state signal.
 type platformEntry struct {
 	name    string
+	typ     string
 	updater platform.PresenceUpdater
 	reader  platform.PresenceReader
 }
@@ -83,7 +84,10 @@ func main() {
 		log.Fatalf("omnistatus-menubar: %v", err)
 	}
 	appConfig = cfg
-	appEntries = buildEntries(cfg)
+	appEntries, err = buildEntries(cfg)
+	if err != nil {
+		log.Fatalf("omnistatus-menubar: %v", err)
+	}
 
 	appManager = platform.NewManager()
 	for _, e := range appEntries {
@@ -101,12 +105,17 @@ func main() {
 // minus Discord (paused, no reader, excluded from the menu bar entirely
 // per HANDOFF.md §6) and minus any interactive Teams auth attempt (see
 // package doc comment).
-func buildEntries(cfg *config.Config) []platformEntry {
+func buildEntries(cfg *config.Config) ([]platformEntry, error) {
 	all := []platform.PresenceUpdater{
 		platform.NewSlackUpdater(cfg.Slack),
 		platform.NewTeamsUpdater(cfg.Teams),
 		platform.NewGitHubUpdater(cfg.GitHub),
 	}
+	instanceUpdaters, err := platform.NewInstanceUpdaters(cfg)
+	if err != nil {
+		return nil, err
+	}
+	all = append(all, instanceUpdaters...)
 
 	var entries []platformEntry
 	for _, u := range all {
@@ -116,11 +125,12 @@ func buildEntries(cfg *config.Config) []platformEntry {
 		reader, _ := u.(platform.PresenceReader)
 		entries = append(entries, platformEntry{
 			name:    u.Name(),
+			typ:     u.Type(),
 			updater: u,
 			reader:  reader,
 		})
 	}
-	return entries
+	return entries, nil
 }
 
 // platformStates lists only the PresenceStates that produce a distinct,
@@ -200,13 +210,13 @@ func refresh() {
 		if len(runs) > 0 {
 			runs = append(runs, menuet.TextRun{Text: "  "})
 		}
-		icon := strings.ToUpper(e.name[:1])
+		icon := platform.DefaultIcon(e.name)
 		info, _, err := platform.GetCached(ctx, e.name, e.reader, cacheEnabled, cacheTTL, &cache, &cacheDirty)
 		if err != nil {
 			runs = append(runs, menuet.TextRun{Text: icon, Color: menuet.Gray})
 			continue
 		}
-		color := bucketColor[platform.Bucket(e.name, info.Availability)]
+		color := bucketColor[platform.Bucket(e.typ, info.Availability)]
 		runs = append(runs, menuet.TextRun{Text: icon, Color: color})
 	}
 
@@ -284,7 +294,7 @@ func platformMenuItems(ctx context.Context, e platformEntry) []menuet.MenuItem {
 	items := []menuet.MenuItem{
 		menuet.Regular{Text: label, Color: menuet.LabelSecondary},
 	}
-	for _, state := range platformStates(e.name) {
+	for _, state := range platformStates(e.typ) {
 		s := state
 		updater := e.updater
 		items = append(items, menuet.Regular{

@@ -93,6 +93,11 @@ The command's exit code is still non-zero if any platform errored, even
 though the JSON itself is always valid - check the "error" fields for
 which platform(s) failed rather than relying on exit code alone.
 
+Multiple accounts: Slack and GitHub can have extra accounts under a
+top-level "instances:" map (each with a "type" of slack or github); the
+instance name is what shows up here and in --platform. See
+config.example.yaml.
+
 Examples:
   ost status                                    # Show all readable platforms
   ost status --platform teams                   # Show only Teams
@@ -117,6 +122,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	type readerEntry struct {
 		name     string
+		typ      string
 		reader   platform.PresenceReader
 		cfgBlock *config.PlatformConfig
 	}
@@ -135,14 +141,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		platform.NewDiscordUpdater(cfg.Discord),
 		platform.NewGitHubUpdater(cfg.GitHub),
 	}
-	// cfgBlocks mirrors allUpdaters by platform name, so tmux-format
-	// rendering can look up each platform's icon/color overrides.
-	cfgBlocks := map[string]*config.PlatformConfig{
-		"slack":   cfg.Slack,
-		"teams":   cfg.Teams,
-		"discord": cfg.Discord,
-		"github":  cfg.GitHub,
+	instanceUpdaters, err := platform.NewInstanceUpdaters(cfg)
+	if err != nil {
+		return err
 	}
+	allUpdaters = append(allUpdaters, instanceUpdaters...)
 
 	var readers []readerEntry
 	for _, updater := range allUpdaters {
@@ -153,7 +156,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		if !ok {
 			continue
 		}
-		readers = append(readers, readerEntry{name: updater.Name(), reader: reader, cfgBlock: cfgBlocks[updater.Name()]})
+		readers = append(readers, readerEntry{name: updater.Name(), typ: updater.Type(), reader: reader, cfgBlock: cfg.BlockFor(updater.Name())})
 	}
 
 	if statusPlatformFlag != "" {
@@ -230,8 +233,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		case "short":
 			fmt.Println(info.Availability)
 		case "tmux":
-			bucket := platform.Bucket(r.name, info.Availability)
-			icon := r.cfgBlock.Icon(strings.ToUpper(r.name[:1]))
+			bucket := platform.Bucket(r.typ, info.Availability)
+			icon := r.cfgBlock.Icon(platform.DefaultIcon(r.name))
 			color := r.cfgBlock.ColorFor(bucket)
 			label := icon
 			if cfg.TmuxShowStateOrDefault() {

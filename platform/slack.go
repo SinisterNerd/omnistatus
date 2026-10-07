@@ -30,16 +30,24 @@ import (
 
 // SlackUpdater implements PresenceUpdater for Slack
 type SlackUpdater struct {
+	name    string
 	enabled bool
 	token   string
 }
 
 // NewSlackUpdater creates a new Slack presence updater
 func NewSlackUpdater(cfg *config.PlatformConfig) *SlackUpdater {
+	return NewNamedSlackUpdater("slack", cfg)
+}
+
+// NewNamedSlackUpdater creates a Slack updater for a specific instance
+// name (used when more than one Slack account is configured).
+func NewNamedSlackUpdater(name string, cfg *config.PlatformConfig) *SlackUpdater {
 	if cfg == nil {
-		return &SlackUpdater{enabled: false}
+		return &SlackUpdater{name: name, enabled: false}
 	}
 	return &SlackUpdater{
+		name:    name,
 		enabled: cfg.Enabled,
 		token:   cfg.Token,
 	}
@@ -47,6 +55,11 @@ func NewSlackUpdater(cfg *config.PlatformConfig) *SlackUpdater {
 
 // Name returns the platform name
 func (s *SlackUpdater) Name() string {
+	return s.name
+}
+
+// Type returns the platform type ("slack"), shared by all Slack instances.
+func (s *SlackUpdater) Type() string {
 	return "slack"
 }
 
@@ -138,7 +151,7 @@ func (s *SlackUpdater) updateProfileStatus(ctx context.Context, status, emoji st
 		return err
 	}
 
-	fmt.Printf("slack: warning: emoji %q was rejected as invalid, status text set without it\n", emoji)
+	fmt.Printf("%s: warning: emoji %q was rejected as invalid, status text set without it\n", s.name, emoji)
 	return nil
 }
 
@@ -269,7 +282,7 @@ func (s *SlackUpdater) GetPresence(ctx context.Context) (PresenceInfo, error) {
 	}
 
 	return PresenceInfo{
-		Platform:     "slack",
+		Platform:     s.name,
 		Availability: presenceResult.Presence,
 		Activity:     activity,
 	}, nil

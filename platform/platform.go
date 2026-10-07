@@ -19,7 +19,11 @@ package platform
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
+
+	"github.com/SinisterNerd/omnistatus/config"
 )
 
 // PresenceState represents the user's presence state
@@ -98,8 +102,14 @@ type PresenceReader interface {
 
 // PresenceUpdater defines the interface that all platform implementations must satisfy
 type PresenceUpdater interface {
-	// Name returns the platform name (e.g., "slack", "teams", "discord")
+	// Name returns the unique instance name (e.g., "slack", "teams",
+	// "slack-personal"). Used as the display name and cache key.
 	Name() string
+
+	// Type returns the platform type ("slack", "teams", "discord",
+	// "github"). Several instances can share one type (e.g. two Slack
+	// accounts); behavior such as state mapping keys off the type.
+	Type() string
 
 	// IsEnabled returns whether this platform is enabled in the config
 	IsEnabled() bool
@@ -110,6 +120,40 @@ type PresenceUpdater interface {
 
 	// Clear clears the presence/status on the platform
 	ClearPresence(ctx context.Context) error
+}
+
+// NewInstanceUpdaters builds updaters for the extra accounts configured
+// under cfg.Instances, sorted by instance name. Only slack and github
+// support multiple instances; an unknown or missing type, or a name that
+// collides with a built-in platform name, is an error rather than being
+// silently ignored.
+func NewInstanceUpdaters(cfg *config.Config) ([]PresenceUpdater, error) {
+	names := make([]string, 0, len(cfg.Instances))
+	for name := range cfg.Instances {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var updaters []PresenceUpdater
+	for _, name := range names {
+		block := cfg.Instances[name]
+		switch name {
+		case "slack", "teams", "discord", "github":
+			return nil, fmt.Errorf("instances.%s: name is reserved for the top-level %s: block", name, name)
+		}
+		if block == nil {
+			return nil, fmt.Errorf("instances.%s: empty block", name)
+		}
+		switch block.Type {
+		case "slack":
+			updaters = append(updaters, NewNamedSlackUpdater(name, block))
+		case "github":
+			updaters = append(updaters, NewNamedGitHubUpdater(name, block))
+		default:
+			return nil, fmt.Errorf("instances.%s: type must be \"slack\" or \"github\", got %q", name, block.Type)
+		}
+	}
+	return updaters, nil
 }
 
 // Manager manages multiple presence updaters and coordinates concurrent updates
@@ -252,4 +296,19 @@ func (m *Manager) ClearAll(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// DefaultIcon returns the short fallback label used when no tmux icon is
+// configured: the uppercased first letter of the instance name, plus the
+// first letter of any "-"/"_" suffix so sibling instances stay distinct
+// ("slack-work" -> "Sw", "slack-personal" -> "Sp", "teams" -> "T").
+func DefaultIcon(name string) string {
+	if name == "" {
+		return "?"
+	}
+	icon := strings.ToUpper(name[:1])
+	if i := strings.IndexAny(name, "-_"); i >= 0 && i+1 < len(name) {
+		icon += strings.ToLower(name[i+1 : i+2])
+	}
+	return icon
 }

@@ -89,6 +89,11 @@ func (d *DiscordUpdater) Name() string {
 	return "discord"
 }
 
+// Type returns the platform type ("discord").
+func (d *DiscordUpdater) Type() string {
+	return "discord"
+}
+
 // IsEnabled returns whether Discord is enabled
 func (d *DiscordUpdater) IsEnabled() bool {
 	return d.enabled && d.clientID != ""

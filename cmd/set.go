@@ -116,6 +116,14 @@ func runSet(cmd *cobra.Command, args []string) error {
 	manager.Register(platform.NewDiscordUpdater(cfg.Discord))
 	manager.Register(platform.NewGitHubUpdater(cfg.GitHub))
 
+	instanceUpdaters, err := platform.NewInstanceUpdaters(cfg)
+	if err != nil {
+		return err
+	}
+	for _, u := range instanceUpdaters {
+		manager.Register(u)
+	}
+
 	// Update all enabled platforms concurrently
 	// Discord's local RPC handshake can occasionally take 15-20+ seconds
 	// to respond (observed directly), so give real headroom beyond that.

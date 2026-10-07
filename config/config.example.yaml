@@ -104,6 +104,52 @@ github:
     color_red: "colour196"
     # font: "JetBrainsMono Nerd Font"
 
+# Additional Slack / GitHub accounts (optional)
+# The top-level slack: and github: blocks above are your "default"
+# accounts (instance names "slack" and "github"). To run a second (or
+# third...) account of either - e.g. work + personal - add it here.
+#
+# - The key is an instance name you choose. It appears in `ost status`,
+#   `--platform <name>`, and the status cache, and must be unique. It can't
+#   be slack, teams, discord, or github (those are the blocks above).
+# - `type` is required and must be "slack" or "github". Teams and Discord
+#   don't support multiple instances.
+# - Everything else works exactly as in the top-level blocks above: the same
+#   token requirements/scopes, plus the optional tmux: block (icon, colors,
+#   font).
+# - `ost set` / `ost clear` update EVERY enabled account (default and
+#   instances) with the same status. `ost status` shows each one separately.
+# - If you omit a tmux icon, the fallback label comes from the name
+#   ("slack-personal" -> "Sp", "github-personal" -> "Gp"), so either use
+#   distinct names or set an icon, or two accounts will look alike.
+#
+# Full example: work accounts in the default slack:/github: blocks above,
+# personal accounts as instances. Uncomment and fill in real tokens.
+#
+# instances:
+#   slack-personal:
+#     type: slack
+#     enabled: true
+#     token: "xoxp-YOUR_PERSONAL_SLACK_USER_TOKEN"   # from your personal workspace's Slack app
+#     tmux:
+#       icon: "SP"
+#       color_green: "green"
+#       color_yellow: "yellow"
+#       color_red: "red"
+#
+#   github-personal:
+#     type: github
+#     enabled: true
+#     token: "ghp_YOUR_PERSONAL_GITHUB_TOKEN"        # classic PAT with the "user" scope
+#     tmux:
+#       icon: "GP"
+#
+#   # A third account is just another entry, e.g.:
+#   # slack-community:
+#   #   type: slack
+#   #   enabled: false          # disabled entries are ignored
+#   #   token: "xoxp-..."
+
 # Status Cache Configuration (optional)
 # Caches `ost status` results locally for a short TTL, to avoid redundant
 # API calls when multiple callers (e.g. several tmux panes/sessions each

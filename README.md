@@ -274,6 +274,25 @@ GitHub has no availability/presence concept - only a profile status (the emoji +
 
 **`--duration` support:** GitHub natively supports auto-expiring statuses via `expiresAt`, same as Teams. `ost set --status "Heads down" --state busy --duration 2h` will automatically clear after 2 hours - GitHub handles this server-side, not omniStatus.
 
+### Multiple Slack / GitHub accounts
+
+Slack and GitHub each support more than one account (e.g. work + personal). Keep your existing `slack:` / `github:` blocks as the default accounts and add the extras under `instances:`, each with a unique name and a `type`:
+
+```yaml
+instances:
+  slack-personal:
+    type: slack
+    enabled: true
+    token: "xoxp-..."
+    tmux: { icon: "SP" }
+  github-personal:
+    type: github
+    enabled: true
+    token: "ghp_..."
+```
+
+`ost set` / `ost clear` update every enabled instance; `ost status --platform slack-personal` targets one. Existing configs need no changes. Teams and Discord are single-account only.
+
 ## Architecture
 
 ### Core Components

@@ -65,6 +65,7 @@ const refreshInterval = 15 * time.Second
 // display, writes still work). Same shape as cmd/menubar's.
 type platformEntry struct {
 	name     string
+	typ      string
 	updater  platform.PresenceUpdater
 	reader   platform.PresenceReader
 	cfgBlock *config.PlatformConfig
@@ -109,7 +110,10 @@ func main() {
 		fatalError("omniStatus", err.Error())
 	}
 	appConfig = cfg
-	appEntries = buildEntries(cfg)
+	appEntries, err = buildEntries(cfg)
+	if err != nil {
+		fatalError("omniStatus", err.Error())
+	}
 
 	appManager = platform.NewManager()
 	for _, e := range appEntries {
@@ -134,17 +138,17 @@ func onExit() {}
 // cmd/menubar - minus Discord (paused, no reader, excluded entirely per
 // HANDOFF.md §4.4/§10.3) and minus any interactive Teams auth attempt (see
 // package doc comment).
-func buildEntries(cfg *config.Config) []platformEntry {
+func buildEntries(cfg *config.Config) ([]platformEntry, error) {
 	all := []platform.PresenceUpdater{
 		platform.NewSlackUpdater(cfg.Slack),
 		platform.NewTeamsUpdater(cfg.Teams),
 		platform.NewGitHubUpdater(cfg.GitHub),
 	}
-	cfgBlocks := map[string]*config.PlatformConfig{
-		"slack":  cfg.Slack,
-		"teams":  cfg.Teams,
-		"github": cfg.GitHub,
+	instanceUpdaters, err := platform.NewInstanceUpdaters(cfg)
+	if err != nil {
+		return nil, err
 	}
+	all = append(all, instanceUpdaters...)
 
 	var entries []platformEntry
 	for _, u := range all {
@@ -154,12 +158,13 @@ func buildEntries(cfg *config.Config) []platformEntry {
 		reader, _ := u.(platform.PresenceReader)
 		entries = append(entries, platformEntry{
 			name:     u.Name(),
+			typ:      u.Type(),
 			updater:  u,
 			reader:   reader,
-			cfgBlock: cfgBlocks[u.Name()],
+			cfgBlock: cfg.BlockFor(u.Name()),
 		})
 	}
-	return entries
+	return entries, nil
 }
 
 // platformStates lists only the PresenceStates that produce a distinct,
@@ -228,7 +233,7 @@ func buildMenu() {
 		}
 
 		updater := e.updater
-		for _, state := range platformStates(e.name) {
+		for _, state := range platformStates(e.typ) {
 			s := state
 			item := topItem.AddSubMenuItem(stateLabel(s), "")
 			go func() {
@@ -314,7 +319,7 @@ func refresh() {
 			appUIs[i].topItem.SetTitle(displayName(e.name) + ": error")
 			tooltipLines = append(tooltipLines, displayName(e.name)+": error")
 			winLines = append(winLines, detailsLine{
-				Icon: strings.ToUpper(e.name[:1]), IconColor: errorColor,
+				Icon: platform.DefaultIcon(e.name), IconColor: errorColor,
 				Text: displayName(e.name) + ": error",
 			})
 			continue
@@ -324,7 +329,7 @@ func refresh() {
 		appUIs[i].topItem.SetTitle(fmt.Sprintf("%s (%s)", displayName(e.name), info.Availability))
 		tooltipLines = append(tooltipLines, fmt.Sprintf("%s: %s", displayName(e.name), info.Availability))
 
-		bucket := platform.Bucket(e.name, info.Availability)
+		bucket := platform.Bucket(e.typ, info.Availability)
 		if worst == "" || severity[bucket] > severity[worst] {
 			worst = bucket
 		}
@@ -333,7 +338,7 @@ func refresh() {
 		// the tray icon, which is a fixed bitmap), so - unlike the macOS
 		// app - it can honor the configured icon/color/font here: see
 		// config.TmuxDisplayConfig's Font field.
-		icon := e.cfgBlock.Icon(strings.ToUpper(e.name[:1]))
+		icon := e.cfgBlock.Icon(platform.DefaultIcon(e.name))
 		iconColor := parseColor(e.cfgBlock.ColorFor(bucket), bucketColor[bucket])
 
 		// A custom icon already identifies the platform, so the "Slack:"/

@@ -41,6 +41,7 @@ import (
 // Uses GitHub's GraphQL API (changeUserStatus mutation / viewer.status
 // query) with a Personal Access Token.
 type GitHubUpdater struct {
+	name    string
 	enabled bool
 	token   string
 }
@@ -49,10 +50,17 @@ const githubGraphQLEndpoint = "https://api.github.com/graphql"
 
 // NewGitHubUpdater creates a new GitHub presence updater
 func NewGitHubUpdater(cfg *config.PlatformConfig) *GitHubUpdater {
+	return NewNamedGitHubUpdater("github", cfg)
+}
+
+// NewNamedGitHubUpdater creates a GitHub updater for a specific instance
+// name (used when more than one GitHub account is configured).
+func NewNamedGitHubUpdater(name string, cfg *config.PlatformConfig) *GitHubUpdater {
 	if cfg == nil {
-		return &GitHubUpdater{enabled: false}
+		return &GitHubUpdater{name: name, enabled: false}
 	}
 	return &GitHubUpdater{
+		name:    name,
 		enabled: cfg.Enabled,
 		token:   cfg.Token,
 	}
@@ -60,6 +68,11 @@ func NewGitHubUpdater(cfg *config.PlatformConfig) *GitHubUpdater {
 
 // Name returns the platform name
 func (g *GitHubUpdater) Name() string {
+	return g.name
+}
+
+// Type returns the platform type ("github"), shared by all GitHub instances.
+func (g *GitHubUpdater) Type() string {
 	return "github"
 }
 
@@ -162,7 +175,7 @@ func (g *GitHubUpdater) GetPresence(ctx context.Context) (PresenceInfo, error) {
 		return PresenceInfo{}, fmt.Errorf("github API error: %s", result.Errors[0].Message)
 	}
 
-	info := PresenceInfo{Platform: "github"}
+	info := PresenceInfo{Platform: g.name}
 
 	if result.Data.Viewer.Status == nil {
 		info.Availability = "none"

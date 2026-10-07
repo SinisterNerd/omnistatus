@@ -27,6 +27,7 @@ import (
 // PlatformConfig represents configuration for a specific platform
 type PlatformConfig struct {
 	Enabled bool               `yaml:"enabled"`
+	Type    string             `yaml:"type,omitempty"` // Only used under Config.Instances: "slack" or "github"
 	Token   string             `yaml:"token"`
 	Extra   map[string]string  `yaml:"extra"`          // For platform-specific config
 	Tmux    *TmuxDisplayConfig `yaml:"tmux,omitempty"` // Per-platform tmux status-line display (see `ost status --format tmux`)
@@ -195,6 +196,32 @@ type Config struct {
 	GitHub  *PlatformConfig `yaml:"github"`
 	Cache   *CacheConfig    `yaml:"cache"`
 	Display *DisplayConfig  `yaml:"display,omitempty"`
+
+	// Instances holds additional accounts of a platform that supports
+	// more than one (currently slack and github), keyed by a unique
+	// instance name of your choosing (e.g. "slack-personal"). The
+	// top-level slack:/github: blocks remain the "default" instance and
+	// keep their original names, so existing configs work unchanged. The
+	// instance name is what appears in `ost status`, the tmux line, and
+	// the cache; each entry must set `type`.
+	Instances map[string]*PlatformConfig `yaml:"instances,omitempty"`
+}
+
+// BlockFor returns the config block for the given instance name: one of
+// the fixed platform names ("slack", "teams", "discord", "github") or a
+// key under Instances. Returns nil if there is no such block.
+func (c *Config) BlockFor(name string) *PlatformConfig {
+	switch name {
+	case "slack":
+		return c.Slack
+	case "teams":
+		return c.Teams
+	case "discord":
+		return c.Discord
+	case "github":
+		return c.GitHub
+	}
+	return c.Instances[name]
 }
 
 // configPathOverride, when set via SetConfigPath, takes precedence over

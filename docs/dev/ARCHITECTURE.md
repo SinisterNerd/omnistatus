@@ -35,7 +35,8 @@ The heart of the extensible architecture. All platforms implement this interface
 
 ```go
 type PresenceUpdater interface {
-    Name() string
+    Name() string // unique instance name: display name + cache key
+    Type() string // platform type; state mapping/Bucket key off this
     IsEnabled() bool
     UpdatePresence(ctx context.Context, update PresenceUpdate) error
     ClearPresence(ctx context.Context) error
@@ -46,6 +47,15 @@ type PresenceUpdater interface {
 - Add new platforms without modifying existing code
 - Each platform can implement its own API communication
 - Type-safe platform implementations
+
+**Multiple instances:** Slack and GitHub can run several accounts. The
+top-level `slack:`/`github:` config blocks keep the names "slack"/"github";
+extra accounts live under `instances:` (each with a `type`) and are built by
+`platform.NewInstanceUpdaters`. Anything keyed by *name* (cache, `--platform`,
+display, icon/color config via `Config.BlockFor`) is per-instance; anything
+about *behavior* (`Bucket`, `platformStates` in the menubar/tray apps) must use
+`Type()`. Teams/Discord are single-instance. Not yet verified live with real
+second-account tokens (as of 2026-10-07).
 
 ### 2. Manager Pattern
 

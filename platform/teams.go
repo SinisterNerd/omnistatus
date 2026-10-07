@@ -91,6 +91,11 @@ func (t *TeamsUpdater) Name() string {
 	return "teams"
 }
 
+// Type returns the platform type ("teams").
+func (t *TeamsUpdater) Type() string {
+	return "teams"
+}
+
 // IsEnabled returns whether Teams is enabled and has usable credentials
 func (t *TeamsUpdater) IsEnabled() bool {
 	return t.enabled && t.accessToken != "" && t.refreshToken != "" &&

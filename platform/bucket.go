@@ -23,8 +23,8 @@ package platform
 // Falls back to "yellow" for any value not explicitly recognized (e.g. a
 // new Graph API presence value Microsoft adds later), since that's the
 // least alarming default.
-func Bucket(platformName, availability string) string {
-	switch platformName {
+func Bucket(platformType, availability string) string {
+	switch platformType {
 	case "slack":
 		switch availability {
 		case "active":
