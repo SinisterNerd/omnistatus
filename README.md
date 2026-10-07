@@ -152,6 +152,7 @@ Updates presence across all enabled platforms.
 - `--emoji STRING` - Emoji code (e.g., `:coffee:`, `:calendar:`)
 - `--state STRING` - Presence state: `active`, `away`, `dnd`, `busy`, `brb`, or `offline` (default: `active`)
 - `--duration STRING` - Optional: auto-clear after this long (e.g. `30m`, `1h30m`). Only Teams and GitHub honor this - see [Platform Capabilities](#platform-capabilities)
+- `--platform NAMES` - Optional: only update these platform instances (names as shown by `ost status`, e.g. `slack`, `github-personal`; comma-separate or repeat). Default: all enabled. Naming one that isn't configured and enabled is an error.
 - `--config STRING` - Optional: path to a custom config file (default: `~/.config/omnistatus/config.yaml`)
 
 **Examples:**
@@ -160,15 +161,19 @@ ost set --status "Coffee break" --emoji ":coffee:" --state away
 ost set --status "In meeting"
 ost set --status "Deep work" --state dnd --emoji ":brain:"
 ost set --status "Heads down" --state busy --duration 2h
+ost set --status "At lunch" --state away --platform slack,slack-personal   # only these accounts
 ```
 
 #### `ost clear`
 
 Clears presence status across all enabled platforms and resets to default state.
 
-**Example:**
+Accepts the same `--platform` filter as `ost set`.
+
+**Examples:**
 ```bash
 ost clear
+ost clear --platform slack-personal
 ```
 
 ## Configuration

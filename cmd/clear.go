@@ -23,7 +23,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/SinisterNerd/omnistatus/config"
-	"github.com/SinisterNerd/omnistatus/platform"
 )
 
 // clearCmd represents the clear command
@@ -40,7 +39,11 @@ Example:
 	RunE: runClear,
 }
 
+var clearPlatformFlag []string
+
 func init() {
+	clearCmd.Flags().StringSliceVar(&clearPlatformFlag, "platform", nil, "Only clear these platform instances (names as shown by 'ost status'; repeat or comma-separate). Default: all enabled")
+
 	RootCmd.AddCommand(clearCmd)
 }
 
@@ -52,25 +55,10 @@ func runClear(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Create platform manager and register all platforms
-	manager := platform.NewManager()
-	manager.Register(platform.NewSlackUpdater(cfg.Slack))
-
-	teamsUpdater, err := getTeamsUpdater(cfg.Teams)
+	// Create platform manager (optionally limited by --platform)
+	manager, err := buildManager(cfg, clearPlatformFlag)
 	if err != nil {
 		return err
-	}
-	manager.Register(teamsUpdater)
-
-	manager.Register(platform.NewDiscordUpdater(cfg.Discord))
-	manager.Register(platform.NewGitHubUpdater(cfg.GitHub))
-
-	instanceUpdaters, err := platform.NewInstanceUpdaters(cfg)
-	if err != nil {
-		return err
-	}
-	for _, u := range instanceUpdaters {
-		manager.Register(u)
 	}
 
 	// Clear all enabled platforms concurrently

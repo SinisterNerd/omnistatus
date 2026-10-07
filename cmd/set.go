@@ -39,6 +39,12 @@ Example:
   ost set --status "In a meeting" --emoji ":calendar:" --state away
   ost set --status "Coffee break" --emoji ":coffee:" --state dnd
   ost set --status "Focus time" --state busy --duration 1h30m
+  ost set --status "Heads down" --platform slack,github   # only these instances
+  ost set --state away --platform slack-personal
+
+--platform takes instance names as listed by 'ost status' (e.g. "slack",
+"teams", or any name under "instances:" in your config). Repeat the flag or
+comma-separate. It's an error to name one that isn't configured and enabled.
 
 Not all platforms support --duration (auto-expiring status). Currently:
   Teams:   supported (Graph API expirationDuration)
@@ -53,6 +59,8 @@ var (
 	emojiFlag    string
 	stateFlag    string
 	durationFlag string
+
+	setPlatformFlag []string
 )
 
 func init() {
@@ -60,6 +68,8 @@ func init() {
 	setCmd.Flags().StringVar(&emojiFlag, "emoji", "", "Emoji code (e.g., ':coffee:') to set")
 	setCmd.Flags().StringVar(&stateFlag, "state", "active", "Presence state: active, away, dnd, busy, brb, or offline")
 	setCmd.Flags().StringVar(&durationFlag, "duration", "", "Optional: auto-clear after this long (e.g. '30m', '1h30m'). Only supported by some platforms - see help text")
+
+	setCmd.Flags().StringSliceVar(&setPlatformFlag, "platform", nil, "Only update these platform instances (names as shown by 'ost status'; repeat or comma-separate). Default: all enabled")
 
 	RootCmd.AddCommand(setCmd)
 }
@@ -103,25 +113,10 @@ func runSet(cmd *cobra.Command, args []string) error {
 		Duration: duration,
 	}
 
-	// Create platform manager and register all platforms
-	manager := platform.NewManager()
-	manager.Register(platform.NewSlackUpdater(cfg.Slack))
-
-	teamsUpdater, err := getTeamsUpdater(cfg.Teams)
+	// Create platform manager (optionally limited by --platform)
+	manager, err := buildManager(cfg, setPlatformFlag)
 	if err != nil {
 		return err
-	}
-	manager.Register(teamsUpdater)
-
-	manager.Register(platform.NewDiscordUpdater(cfg.Discord))
-	manager.Register(platform.NewGitHubUpdater(cfg.GitHub))
-
-	instanceUpdaters, err := platform.NewInstanceUpdaters(cfg)
-	if err != nil {
-		return err
-	}
-	for _, u := range instanceUpdaters {
-		manager.Register(u)
 	}
 
 	// Update all enabled platforms concurrently
